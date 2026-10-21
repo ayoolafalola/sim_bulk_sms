@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/capability_providers.dart';
 import '../../app/providers.dart';
+import '../../app/sending_providers.dart';
 import '../../platform/sms/sms_capability_service.dart';
 import '../campaigns/campaign_labels.dart';
 
@@ -104,17 +105,34 @@ class _Banner extends StatelessWidget {
       );
 }
 
-class _CapabilityCard extends StatelessWidget {
+class _CapabilityCard extends ConsumerWidget {
   const _CapabilityCard(this.c);
   final SmsCapabilities c;
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final String text;
     if (c.canSendDirectly) {
       text = 'This device can send SMS directly through your SIM. Carrier charges apply.';
     } else {
       text = c.messageForUser ?? 'Direct sending is not available on this device.';
     }
-    return _Banner(icon: c.canSendDirectly ? Icons.sim_card_outlined : Icons.info_outline, text: text);
+    final banner = _Banner(icon: c.canSendDirectly ? Icons.sim_card_outlined : Icons.info_outline, text: text);
+    if (c.blocker != DirectSendBlocker.permissionDenied) return banner;
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      banner,
+      const SizedBox(height: 8),
+      FilledButton.tonalIcon(
+        onPressed: () async {
+          final ok = await ref.read(smsServiceProvider).requestRequiredPermissions();
+          ref.invalidate(capabilitiesProvider);
+          if (!ok && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('SMS permission was not granted. You can allow it in the system app settings.')));
+          }
+        },
+        icon: const Icon(Icons.lock_open),
+        label: const Text('Allow SMS permission'),
+      ),
+    ]);
   }
 }

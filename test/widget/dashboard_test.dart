@@ -59,4 +59,14 @@ void main() {
     await t.pumpAndSettle();
     expect(find.textContaining('directly through your SIM'), findsOneWidget);
   });
+
+  testWidgets('missing SMS permission offers a button to grant it', (t) async {
+    await t.pumpWidget(host(
+        const SmsCapabilities(platform: SmsPlatform.android, canSendDirectly: false,
+            usesComposerHandoff: false, canSelectSim: false, blocker: DirectSendBlocker.permissionDenied,
+            messageForUser: 'SMS permission is required to send through your SIM.'),
+        empty));
+    await t.pumpAndSettle();
+    expect(find.text('Allow SMS permission'), findsOneWidget);
+  });
 }

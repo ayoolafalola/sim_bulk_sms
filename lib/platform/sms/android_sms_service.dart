@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../../domain/models/statuses.dart';
 import 'sms_capability_service.dart';
@@ -8,9 +9,10 @@ class AndroidSmsService implements SmsCapabilityService {
   static const _events = EventChannel('app.sim_bulk_sms/sms_events');
 
   /// Release gate: keep false until Google Play approval/exception is documented
-  /// in docs/PERMISSIONS_AND_STORE_POLICY.md. Sideload/dev builds may flip it.
+  /// in docs/PERMISSIONS_AND_STORE_POLICY.md. Debug builds (`flutter run`) are
+  /// never distributed, so they may send; release builds need the define.
   static const bool playPolicyResolved =
-      bool.fromEnvironment('PLAY_SMS_POLICY_RESOLVED', defaultValue: false);
+      kDebugMode || bool.fromEnvironment('PLAY_SMS_POLICY_RESOLVED', defaultValue: false);
 
   @override
   Future<SmsCapabilities> getCapabilities() async {
@@ -29,7 +31,7 @@ class AndroidSmsService implements SmsCapabilityService {
     return SmsCapabilities(
       platform: SmsPlatform.android,
       canSendDirectly: blocker == DirectSendBlocker.none,
-      usesComposerHandoff: blocker != DirectSendBlocker.none && hasTelephony,
+      usesComposerHandoff: false, // Android composer fallback is not implemented yet
       canSelectSim: sims > 1,
       blocker: blocker,
       messageForUser: msg,

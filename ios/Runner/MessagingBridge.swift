@@ -2,7 +2,7 @@ import Flutter
 import MessageUI
 import UIKit
 
-/// Public MessageUI only. The user must tap Send. Not compiled in the authoring environment.
+/// Public MessageUI only. The user must tap Send. Registered in AppDelegate.
 final class MessagingBridge: NSObject, MFMessageComposeViewControllerDelegate {
     private var pending: FlutterResult?
 
@@ -54,6 +54,3 @@ final class MessagingBridge: NSObject, MFMessageComposeViewControllerDelegate {
         return top
     }
 }
-// In AppDelegate.didFinishLaunching:
-//   let c = window?.rootViewController as! FlutterViewController
-//   MessagingBridge.register(with: c.binaryMessenger, bridge: MessagingBridge())  // keep a strong reference
