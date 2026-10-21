@@ -8,7 +8,6 @@ import 'package:sim_bulk_sms/domain/models/contact.dart';
 import 'package:sim_bulk_sms/domain/models/statuses.dart';
 import 'package:sim_bulk_sms/domain/services/recipient_eligibility.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite/sqflite.dart' show Database;
 
 void main() {
   sqfliteFfiInit();

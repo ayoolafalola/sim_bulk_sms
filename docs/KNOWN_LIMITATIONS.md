@@ -4,4 +4,7 @@
 - Delivery reports depend on the carrier; absence does not mean failure.
 - SIM subscription ids are device-local; phone numbers of SIMs are not read.
 - Segment counts are estimates, not carrier billing.
-- Entire codebase is unbuilt and untested (see README).
+- Kotlin and Swift bridges have never been compiled or run on a device.
+- Android composer fallback (system messaging handoff when direct sending is disabled) is not implemented yet.
+- If the process dies while Android callbacks are pending, those messages become `unknown` even if the carrier sent them.
+- No UI screens exist yet; the send queue is exercised only through unit tests with a fake SMS service.

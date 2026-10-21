@@ -22,8 +22,9 @@ class RecipientStateMachine {
       RecipientStatus.sent, RecipientStatus.delivered, RecipientStatus.failed, RecipientStatus.cancelled,
     },
     RecipientStatus.delivered: {},
-    RecipientStatus.failed: {RecipientStatus.prepared}, // explicit user-initiated retry only
-    RecipientStatus.cancelled: {RecipientStatus.prepared},
+    // Explicit user-initiated retry only: re-queue to `pending`.
+    RecipientStatus.failed: {RecipientStatus.pending},
+    RecipientStatus.cancelled: {RecipientStatus.pending},
   };
 
   static bool canTransition(RecipientStatus from, RecipientStatus to) =>
