@@ -7,4 +7,6 @@
 - Kotlin and Swift bridges have never been compiled or run on a device.
 - Android composer fallback (system messaging handoff when direct sending is disabled) is not implemented yet.
 - If the process dies while Android callbacks are pending, those messages become `unknown` even if the carrier sent them.
-- No UI screens exist yet; the send queue is exercised only through unit tests with a fake SMS service.
+- The send flow UI is covered by widget tests only; it has not been run on a real Android or iOS device.
+- A campaign does not remember which groups/contacts were picked: editing a draft means choosing recipients again.
+- Android sending runs in the foreground app process; leaving the app during a long run can stop it (no foreground service yet).

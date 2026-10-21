@@ -6,6 +6,7 @@ import '../data/repositories/group_repository.dart';
 import '../domain/models/campaign.dart';
 import '../domain/models/contact.dart';
 import '../domain/models/statuses.dart';
+import '../features/campaigns/campaign_composer.dart';
 
 /// Overridden in main() with the opened database (and in tests).
 final databaseProvider = Provider<Database>((ref) => throw UnimplementedError('databaseProvider not overridden'));
@@ -45,4 +46,30 @@ final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
     drafts: await campaigns.countByStatus(CampaignStatus.draft),
     recent: await campaigns.recent(),
   );
+});
+
+final composerProvider = Provider((ref) => CampaignComposer(
+      contacts: ref.watch(contactRepositoryProvider),
+      groups: ref.watch(groupRepositoryProvider),
+      campaigns: ref.watch(campaignRepositoryProvider),
+    ));
+
+final allContactsProvider = FutureProvider<List<Contact>>((ref) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(contactRepositoryProvider).search();
+});
+
+final groupMembersProvider = FutureProvider.family<List<Contact>, int>((ref, groupId) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(groupRepositoryProvider).members(groupId);
+});
+
+final campaignProvider = FutureProvider.family<Campaign?, int>((ref, id) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(campaignRepositoryProvider).get(id);
+});
+
+final campaignRecipientsProvider = FutureProvider.family<List<CampaignRecipient>, int>((ref, id) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(campaignRepositoryProvider).recipients(id);
 });

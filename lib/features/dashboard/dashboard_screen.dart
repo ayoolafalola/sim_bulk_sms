@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/capability_providers.dart';
 import '../../app/providers.dart';
 import '../../platform/sms/sms_capability_service.dart';
+import '../campaigns/campaign_labels.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -42,15 +43,32 @@ class DashboardScreen extends ConsumerWidget {
                   contentPadding: EdgeInsets.zero,
                   title: Text(c.name),
                   subtitle: Text('${c.recipientCount} recipients'),
-                  trailing: Chip(label: Text(c.status.name)),
+                  trailing: Chip(label: Text(campaignStatusLabel(c.status))),
+                  onTap: () => context.go('/campaigns/${c.id}'),
                 ),
           ]),
         ),
         const SizedBox(height: 16),
         FilledButton.icon(
-            onPressed: () => context.go('/contacts'),
-            icon: const Icon(Icons.contacts_outlined),
-            label: const Text('Manage contacts')),
+            onPressed: () => context.go('/campaigns/new'),
+            icon: const Icon(Icons.campaign_outlined),
+            label: const Text('New campaign')),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+            child: OutlinedButton.icon(
+                onPressed: () => context.go('/contacts'),
+                icon: const Icon(Icons.contacts_outlined),
+                label: const Text('Contacts')),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+                onPressed: () => context.go('/groups'),
+                icon: const Icon(Icons.group_outlined),
+                label: const Text('Groups')),
+          ),
+        ]),
       ]),
     );
   }
