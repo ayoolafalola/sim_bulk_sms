@@ -1,0 +1,5 @@
+<!-- Merge into android/app/src/main/AndroidManifest.xml -->
+<uses-feature android:name="android.hardware.telephony" android:required="false" />
+<uses-permission android:name="android.permission.SEND_SMS" />          <!-- Restricted by Google Play: see docs/PERMISSIONS_AND_STORE_POLICY.md -->
+<uses-permission android:name="android.permission.READ_PHONE_STATE" />   <!-- Only to list SIM subscriptions -->
+<!-- Deliberately NOT declared: READ_SMS, RECEIVE_SMS, READ_CONTACTS, READ_PHONE_NUMBERS -->

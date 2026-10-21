@@ -1,0 +1,96 @@
+import 'package:sqflite/sqflite.dart';
+import '../../domain/models/contact.dart';
+import '../../domain/models/statuses.dart';
+import '../importers/contact_import_planner.dart';
+
+String _now() => DateTime.now().toUtc().toIso8601String();
+
+String consentToDb(ConsentStatus s) => switch (s) {
+      ConsentStatus.unknown => 'unknown', ConsentStatus.optedIn => 'opted_in', ConsentStatus.optedOut => 'opted_out' };
+ConsentStatus consentFromDb(String s) => switch (s) {
+      'opted_in' => ConsentStatus.optedIn, 'opted_out' => ConsentStatus.optedOut, _ => ConsentStatus.unknown };
+
+class ContactRepository {
+  ContactRepository(this._db);
+  final Database _db;
+
+  Contact _fromRow(Map<String, Object?> r) => Contact(
+      id: r['id'] as int, name: r['name'] as String, phoneRaw: r['phone_raw'] as String,
+      phoneNormalized: r['phone_normalized'] as String?, email: r['email'] as String?,
+      consent: consentFromDb(r['consent_status'] as String));
+
+  Future<int> add(Contact c) async {
+    final now = _now();
+    try {
+      return await _db.insert('contacts', {
+        'name': c.name, 'phone_raw': c.phoneRaw, 'phone_normalized': c.phoneNormalized, 'email': c.email,
+        'consent_status': consentToDb(c.consent),
+        'consent_updated_at': c.consent == ConsentStatus.unknown ? null : now,
+        'created_at': now, 'updated_at': now,
+      });
+    } on DatabaseException catch (e) {
+      if (e.isUniqueConstraintError()) throw DuplicateContactException(c.phoneNormalized ?? '');
+      rethrow;
+    }
+  }
+
+  Future<void> update(Contact c) async {
+    try {
+      await _db.update('contacts', {
+        'name': c.name, 'phone_raw': c.phoneRaw, 'phone_normalized': c.phoneNormalized,
+        'email': c.email, 'updated_at': _now(),
+      }, where: 'id = ?', whereArgs: [c.id]);
+    } on DatabaseException catch (e) {
+      if (e.isUniqueConstraintError()) throw DuplicateContactException(c.phoneNormalized ?? '');
+      rethrow;
+    }
+  }
+
+  Future<void> setConsent(int id, ConsentStatus s) => _db.update('contacts',
+      {'consent_status': consentToDb(s), 'consent_updated_at': _now(), 'updated_at': _now()},
+      where: 'id = ?', whereArgs: [id]);
+
+  Future<void> delete(int id) => _db.delete('contacts', where: 'id = ?', whereArgs: [id]);
+
+  Future<int> count() async =>
+      Sqflite.firstIntValue(await _db.rawQuery('SELECT COUNT(*) FROM contacts')) ?? 0;
+
+  Future<List<Contact>> search([String query = '']) async {
+    final q = query.trim();
+    final rows = q.isEmpty
+        ? await _db.query('contacts', orderBy: 'name COLLATE NOCASE')
+        : await _db.query('contacts',
+            where: 'name LIKE ? OR phone_raw LIKE ? OR phone_normalized LIKE ?',
+            whereArgs: ['%$q%', '%$q%', '%$q%'], orderBy: 'name COLLATE NOCASE');
+    return rows.map(_fromRow).toList();
+  }
+
+  Future<Set<String>> existingNormalized() async {
+    final rows = await _db.query('contacts', columns: ['phone_normalized'], where: 'phone_normalized IS NOT NULL');
+    return rows.map((r) => r['phone_normalized'] as String).toSet();
+  }
+
+  /// Commits ONLY the `valid` rows of a confirmed plan in a single transaction.
+  /// Any failure rolls back everything (no partial import). Returns rows inserted.
+  Future<int> commitImport(ImportPlan plan) => _db.transaction((txn) async {
+        final now = _now();
+        var n = 0;
+        for (final r in plan.importable) {
+          await txn.insert('contacts', {
+            'name': r.name, 'phone_raw': r.phoneRaw, 'phone_normalized': r.e164, 'email': r.email,
+            'consent_status': 'unknown', 'created_at': now, 'updated_at': now,
+          });
+          n++;
+        }
+        return n;
+      });
+
+  // --- suppression list ---
+  Future<void> suppress(String e164, {String? reason}) => _db.insert('suppression_list',
+      {'phone_number_normalized': e164, 'reason': reason, 'created_at': _now()},
+      conflictAlgorithm: ConflictAlgorithm.ignore);
+  Future<void> unsuppress(String e164) =>
+      _db.delete('suppression_list', where: 'phone_number_normalized = ?', whereArgs: [e164]);
+  Future<Set<String>> suppressedNumbers() async =>
+      (await _db.query('suppression_list')).map((r) => r['phone_number_normalized'] as String).toSet();
+}
