@@ -4,6 +4,7 @@ import UIKit
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   private let messagingBridge = MessagingBridge()  // strong reference for the composer delegate
+  private let contactsBridge = ContactsBridge()
 
   override func application(
     _ application: UIApplication,
@@ -16,6 +17,7 @@ import UIKit
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MessagingBridge") {
       MessagingBridge.register(with: registrar.messenger(), bridge: messagingBridge)
+      ContactsBridge.register(with: registrar.messenger(), bridge: contactsBridge)
     }
   }
 }

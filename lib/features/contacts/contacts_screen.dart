@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../app/providers.dart';
 import '../../app/settings_providers.dart';
 import '../../data/importers/contact_import_planner.dart';
@@ -21,6 +22,10 @@ class ContactsScreen extends ConsumerWidget {
     final contacts = ref.watch(contactsProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('Contacts'), actions: [
+        IconButton(
+            tooltip: 'Import from phone',
+            icon: const Icon(Icons.contact_phone_outlined),
+            onPressed: () => context.push('/contacts/import')),
         IconButton(
             tooltip: 'Import CSV',
             icon: const Icon(Icons.upload_file),
@@ -44,7 +49,15 @@ class ContactsScreen extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => const Center(child: Text('Could not load contacts.')),
             data: (list) => list.isEmpty
-                ? const Center(child: Text('No contacts yet. Add one or import a CSV file.'))
+                ? Center(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      const Text('No contacts yet. Add one, import a CSV file, or'),
+                      TextButton.icon(
+                          onPressed: () => context.push('/contacts/import'),
+                          icon: const Icon(Icons.contact_phone_outlined),
+                          label: const Text('Import from phone')),
+                    ]),
+                  )
                 : ListView.builder(
                     itemCount: list.length,
                     itemBuilder: (context, i) => _ContactTile(list[i], onChanged: () => _refresh(ref)),
@@ -103,10 +116,10 @@ class ContactsScreen extends ConsumerWidget {
   }
 
   Future<void> _importCsv(BuildContext context, WidgetRef ref) async {
-    final picked = await FilePicker.platform
-        .pickFiles(type: FileType.custom, allowedExtensions: ['csv', 'txt'], withData: true);
-    final bytes = picked?.files.single.bytes;
-    if (bytes == null || !context.mounted) return;
+    final picked = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['csv', 'txt']);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    if (!context.mounted) return;
 
     final List<List<String>> table;
     try {

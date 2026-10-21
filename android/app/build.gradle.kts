@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "app.sim_bulk_sms"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {

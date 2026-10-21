@@ -15,7 +15,7 @@ let package = Package(
         .library(name: "FlutterGeneratedPluginSwiftPackage", type: .static, targets: ["FlutterGeneratedPluginSwiftPackage"])
     ],
     dependencies: [
-        .package(name: "file_picker", path: "../.packages/file_picker-8.3.7"),
+        .package(name: "file_picker_darwin", path: "../.packages/file_picker_darwin-2.3.2"),
         .package(name: "sqflite_darwin", path: "../.packages/sqflite_darwin-2.4.4+1"),
         .package(name: "FlutterFramework", path: "../.packages/FlutterFramework")
     ],
@@ -23,7 +23,7 @@ let package = Package(
         .target(
             name: "FlutterGeneratedPluginSwiftPackage",
             dependencies: [
-                .product(name: "file-picker", package: "file_picker"),
+                .product(name: "file-picker-darwin", package: "file_picker_darwin"),
                 .product(name: "sqflite-darwin", package: "sqflite_darwin"),
                 .product(name: "FlutterFramework", package: "FlutterFramework")
             ]

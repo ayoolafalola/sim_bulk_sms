@@ -19,6 +19,11 @@ class GroupDetailScreen extends ConsumerWidget {
     final repo = ref.read(groupRepositoryProvider);
     return Scaffold(
       appBar: AppBar(title: Text(group?.name ?? 'Group'), actions: [
+        IconButton(
+          tooltip: 'Add from phone',
+          icon: const Icon(Icons.contact_phone_outlined),
+          onPressed: () => context.push('/contacts/import?group=$groupId'),
+        ),
         PopupMenuButton<String>(
           onSelected: (v) async {
             if (v == 'rename') {
@@ -67,7 +72,15 @@ class GroupDetailScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => const Center(child: Text('Could not load members.')),
         data: (list) => list.isEmpty
-            ? const Center(child: Text('This group has no members yet.'))
+            ? Center(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Text('This group has no members yet.'),
+                  TextButton.icon(
+                      onPressed: () => context.push('/contacts/import?group=$groupId'),
+                      icon: const Icon(Icons.contact_phone_outlined),
+                      label: const Text('Add from phone contacts')),
+                ]),
+              )
             : ListView(children: [
                 for (final c in list)
                   ListTile(

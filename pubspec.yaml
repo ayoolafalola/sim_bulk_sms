@@ -13,11 +13,13 @@ dependencies:
   path: ^1.9.0
   csv: ^6.0.0
   phone_numbers_parser: ^8.2.0   # libphonenumber-derived metadata
-  file_picker: ^8.0.0
-  flutter_contacts: ^1.1.9       # system picker flow
+  file_picker: ^13.1.0
 dev_dependencies:
   flutter_test: { sdk: flutter }
   flutter_lints: ^4.0.0
   sqflite_common_ffi: ^2.3.3
 # NOTE: versions are starting points. Run `flutter pub get`, commit pubspec.lock,
 # and re-verify compatibility (not done in the authoring environment).
+
+flutter:
+  uses-material-design: true

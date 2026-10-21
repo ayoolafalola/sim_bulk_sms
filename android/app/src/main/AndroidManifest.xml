@@ -4,7 +4,9 @@
     <uses-permission android:name="android.permission.SEND_SMS" />
     <!-- Only to list SIM subscriptions -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
-    <!-- Deliberately NOT declared: READ_SMS, RECEIVE_SMS, READ_CONTACTS, READ_PHONE_NUMBERS -->
+    <!-- Read-only: names and numbers for "Import from phone" -->
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Deliberately NOT declared: READ_SMS, RECEIVE_SMS, WRITE_CONTACTS, READ_PHONE_NUMBERS -->
     <application
         android:label="SIM Bulk SMS"
         android:name="${applicationName}"

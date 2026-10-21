@@ -7,6 +7,7 @@ import '../domain/models/campaign.dart';
 import '../domain/models/contact.dart';
 import '../domain/models/statuses.dart';
 import '../features/campaigns/campaign_composer.dart';
+import '../platform/contacts/phone_contacts_service.dart';
 
 /// Overridden in main() with the opened database (and in tests).
 final databaseProvider = Provider<Database>((ref) => throw UnimplementedError('databaseProvider not overridden'));
@@ -73,3 +74,5 @@ final campaignRecipientsProvider = FutureProvider.family<List<CampaignRecipient>
   ref.watch(dataVersionProvider);
   return ref.watch(campaignRepositoryProvider).recipients(id);
 });
+
+final phoneContactsServiceProvider = Provider<PhoneContactsService>((ref) => NativePhoneContactsService());

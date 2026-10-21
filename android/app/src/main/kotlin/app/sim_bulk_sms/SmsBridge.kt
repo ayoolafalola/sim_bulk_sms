@@ -64,7 +64,11 @@ class SmsBridge(private val activity: Activity) :
     }
 
     init {
-        val f = IntentFilter().apply { addAction(ACTION_SENT); addAction(ACTION_DELIVERED) }
+        // The PendingIntents carry a smsattempt:// data URI (to keep them unique), and an
+        // IntentFilter without a matching data scheme rejects intents that have data.
+        val f = IntentFilter().apply {
+            addAction(ACTION_SENT); addAction(ACTION_DELIVERED); addDataScheme("smsattempt")
+        }
         ContextCompat.registerReceiver(ctx, receiver, f, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 

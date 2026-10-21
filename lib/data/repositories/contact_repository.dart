@@ -10,6 +10,14 @@ String consentToDb(ConsentStatus s) => switch (s) {
 ConsentStatus consentFromDb(String s) => switch (s) {
       'opted_in' => ConsentStatus.optedIn, 'opted_out' => ConsentStatus.optedOut, _ => ConsentStatus.unknown };
 
+/// Result of [ContactRepository.upsertByPhone].
+class UpsertResult {
+  const UpsertResult({required this.ids, required this.added, required this.existing});
+  /// App contact ids for every entry, in input order, de-duplicated.
+  final List<int> ids;
+  final int added, existing;
+}
+
 class ContactRepository {
   ContactRepository(this._db);
   final Database _db;
@@ -83,6 +91,35 @@ class ContactRepository {
           n++;
         }
         return n;
+      });
+
+  /// Saves contacts whose numbers are already normalized, in one transaction.
+  /// A number that is already an app contact is reused, not duplicated (and
+  /// its name and consent are left alone). Blank names fall back to the number.
+  Future<UpsertResult> upsertByPhone(List<({String name, String phoneRaw, String e164})> entries) =>
+      _db.transaction((txn) async {
+        final now = _now();
+        final ids = <int>[];
+        final seen = <String, int>{};
+        var added = 0, existing = 0;
+        for (final e in entries) {
+          if (seen.containsKey(e.e164)) continue;
+          final rows = await txn.query('contacts', columns: ['id'], where: 'phone_normalized = ?', whereArgs: [e.e164]);
+          final int id;
+          if (rows.isNotEmpty) {
+            id = rows.first['id'] as int;
+            existing++;
+          } else {
+            id = await txn.insert('contacts', {
+              'name': e.name.trim().isEmpty ? e.e164 : e.name.trim(), 'phone_raw': e.phoneRaw,
+              'phone_normalized': e.e164, 'consent_status': 'unknown', 'created_at': now, 'updated_at': now,
+            });
+            added++;
+          }
+          seen[e.e164] = id;
+          ids.add(id);
+        }
+        return UpsertResult(ids: ids, added: added, existing: existing);
       });
 
   // --- suppression list ---
