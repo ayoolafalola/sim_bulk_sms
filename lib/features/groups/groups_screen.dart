@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/providers.dart';
+import '../common/page_layout.dart';
 
 /// Asks for a group name. Returns the trimmed name, or null if cancelled.
 Future<String?> askGroupName(BuildContext context, {String initial = '', required String title}) async {
@@ -50,7 +51,7 @@ class GroupsScreen extends ConsumerWidget {
         error: (e, _) => const Center(child: Text('Could not load groups.')),
         data: (list) => list.isEmpty
             ? const Center(child: Text('No groups yet. Groups let you pick many recipients at once.'))
-            : ListView(children: [
+            : ListView(padding: pagePadding(context, extra: fabClearance).copyWith(left: 0, right: 0, top: 0), children: [
                 for (final g in list)
                   ListTile(
                     leading: const Icon(Icons.group_outlined),

@@ -158,18 +158,6 @@ class _ImportPhoneContactsScreenState extends ConsumerState<ImportPhoneContactsS
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Import from phone')),
-      bottomNavigationBar: _phase != _Phase.ready
-          ? null
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: FilledButton.icon(
-                  onPressed: _selected.isEmpty || _saving ? null : _addToGroup,
-                  icon: const Icon(Icons.group_add),
-                  label: Text(_saving ? 'Adding…' : 'Add ${_selected.length} to group'),
-                ),
-              ),
-            ),
       body: switch (_phase) {
         _Phase.loading => const Center(child: CircularProgressIndicator()),
         _Phase.denied => _Message(
@@ -201,6 +189,7 @@ class _ImportPhoneContactsScreenState extends ConsumerState<ImportPhoneContactsS
                   : _shown.isEmpty
                       ? const _Message('No contacts match your search.')
                       : ListView.builder(
+                          padding: const EdgeInsets.only(bottom: 24),
                           itemCount: _shown.length,
                           itemBuilder: (context, k) {
                             final i = _shown[k];
@@ -214,6 +203,26 @@ class _ImportPhoneContactsScreenState extends ConsumerState<ImportPhoneContactsS
                             );
                           },
                         ),
+            ),
+            // In the body (not the bottom bar) so it stays above the keyboard while searching.
+            Material(
+              elevation: 3,
+              color: Theme.of(context).colorScheme.surface,
+              child: SafeArea(
+                top: false,
+                bottom: MediaQuery.viewInsetsOf(context).bottom == 0,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _selected.isEmpty || _saving ? null : _addToGroup,
+                      icon: const Icon(Icons.group_add),
+                      label: Text(_saving ? 'Adding…' : 'Add ${_selected.length} to group'),
+                    ),
+                  ),
+                ),
+              ),
             ),
           ]),
       },

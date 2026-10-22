@@ -14,6 +14,7 @@ import '../../domain/services/schedule_calculator.dart';
 import '../../data/repositories/schedule_repository.dart';
 import 'campaign_composer.dart';
 import 'campaign_labels.dart';
+import '../common/page_layout.dart';
 
 /// Review, send and follow one campaign. Every figure comes from persisted
 /// recipient rows; nothing is shown as sent unless the platform reported it.
@@ -254,7 +255,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
               IconButton(tooltip: 'Delete', icon: const Icon(Icons.delete_outline), onPressed: _delete),
           ]),
           bottomNavigationBar: SafeArea(child: _actions(c, caps, list)),
-          body: ListView(padding: const EdgeInsets.all(16), children: [
+          body: ListView(padding: pagePadding(context, extra: 24), children: [
             Row(children: [
               Chip(label: Text(campaignStatusLabel(c.status))),
               const SizedBox(width: 8),
@@ -310,6 +311,12 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
         if (c.status != CampaignStatus.ready) {
           buttons.add(OutlinedButton(onPressed: _cancel, child: const Text('Cancel campaign')));
         }
+      case CampaignStatus.draft:
+        buttons.add(FilledButton.icon(
+          onPressed: () => context.go('/campaigns/$_id/edit'),
+          icon: const Icon(Icons.edit),
+          label: const Text('Continue editing'),
+        ));
       case CampaignStatus.running:
         buttons.add(FilledButton.tonalIcon(
           onPressed: () async {
@@ -328,8 +335,6 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           icon: const Icon(Icons.replay),
           label: const Text('Send again'),
         ));
-      default:
-        break;
     }
     if (buttons.isEmpty && note == null) return const SizedBox.shrink();
     return Padding(

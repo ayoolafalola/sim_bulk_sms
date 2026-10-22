@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/sending_providers.dart';
 import '../../platform/background/background_send_service.dart';
+import '../common/page_layout.dart';
 
 /// Checklist of the phone settings background sending needs, each with a
 /// button that opens the right place. Re-checks when you come back to the app.
@@ -64,7 +65,7 @@ class _Checklist extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return ListView(padding: const EdgeInsets.all(16), children: [
+    return ListView(padding: pagePadding(context, extra: 24), children: [
       Card(
         color: s.ready ? scheme.primaryContainer : scheme.errorContainer,
         child: Padding(

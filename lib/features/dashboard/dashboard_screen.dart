@@ -5,8 +5,10 @@ import '../../app/capability_providers.dart';
 import '../../app/providers.dart';
 import '../../app/sending_providers.dart';
 import '../../platform/sms/sms_capability_service.dart';
+import '../../domain/models/statuses.dart';
 import '../../domain/services/schedule_calculator.dart';
 import '../campaigns/campaign_labels.dart';
+import '../common/page_layout.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -22,7 +24,8 @@ class DashboardScreen extends ConsumerWidget {
             icon: const Icon(Icons.settings_outlined),
             onPressed: () => context.go('/settings/background')),
       ]),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
+      // Generous bottom room so the last buttons are never under the navigation bar.
+      body: ListView(padding: pagePadding(context, extra: 96), children: [
         caps.when(
           data: (c) => _CapabilityCard(c),
           loading: () => const LinearProgressIndicator(),
@@ -51,7 +54,8 @@ class DashboardScreen extends ConsumerWidget {
                   title: Text(c.name),
                   subtitle: Text('${c.recipientCount} recipients'),
                   trailing: Chip(label: Text(campaignStatusLabel(c.status))),
-                  onTap: () => context.go('/campaigns/${c.id}'),
+                  // A draft opens straight back into the editor.
+                  onTap: () => context.go(c.status == CampaignStatus.draft ? '/campaigns/${c.id}/edit' : '/campaigns/${c.id}'),
                 ),
           ]),
         ),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/providers.dart';
 import '../../domain/models/contact.dart';
 import 'groups_screen.dart';
+import '../common/page_layout.dart';
 
 class GroupDetailScreen extends ConsumerWidget {
   const GroupDetailScreen({super.key, required this.groupId});
@@ -81,7 +82,7 @@ class GroupDetailScreen extends ConsumerWidget {
                       label: const Text('Add from phone contacts')),
                 ]),
               )
-            : ListView(children: [
+            : ListView(padding: pagePadding(context, extra: fabClearance).copyWith(left: 0, right: 0, top: 0), children: [
                 for (final c in list)
                   ListTile(
                     title: Text(c.name),

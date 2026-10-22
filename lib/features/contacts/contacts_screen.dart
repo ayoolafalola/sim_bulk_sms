@@ -9,6 +9,7 @@ import '../../data/importers/contact_import_planner.dart';
 import '../../data/importers/csv_parser.dart';
 import '../../domain/models/contact.dart';
 import '../../domain/models/statuses.dart';
+import '../common/page_layout.dart';
 
 class ContactsScreen extends ConsumerWidget {
   const ContactsScreen({super.key});
@@ -59,6 +60,7 @@ class ContactsScreen extends ConsumerWidget {
                     ]),
                   )
                 : ListView.builder(
+                    padding: pagePadding(context, extra: fabClearance).copyWith(left: 0, right: 0, top: 0),
                     itemCount: list.length,
                     itemBuilder: (context, i) => _ContactTile(list[i], onChanged: () => _refresh(ref)),
                   ),

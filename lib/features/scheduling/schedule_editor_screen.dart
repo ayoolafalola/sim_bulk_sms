@@ -9,6 +9,7 @@ import '../../domain/models/statuses.dart';
 import '../../domain/services/campaign_planner.dart';
 import '../../domain/services/schedule_calculator.dart';
 import '../../platform/sms/sms_capability_service.dart';
+import '../common/page_layout.dart';
 
 /// Set when a campaign sends: once at a date/time, or every week on chosen days.
 /// Saving is the approval: scheduled runs don't ask again.
@@ -157,13 +158,9 @@ class _ScheduleEditorScreenState extends ConsumerState<ScheduleEditorScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text('Schedule · ${c.name}')),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: FilledButton(onPressed: canSave ? _save : null, child: Text(_saving ? 'Saving…' : 'Save schedule')),
-        ),
-      ),
-      body: ListView(padding: const EdgeInsets.all(16), children: [
+      body: FormPage(
+          action: FilledButton(onPressed: canSave ? _save : null, child: Text(_saving ? 'Saving…' : 'Save schedule')),
+          children: [
         SegmentedButton<ScheduleKind>(
           segments: const [
             ButtonSegment(value: ScheduleKind.once, label: Text('Once'), icon: Icon(Icons.event)),

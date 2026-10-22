@@ -32,3 +32,7 @@
 - Notifications: ongoing progress while sending; results ("finished — 48 delivered, 2 failed", skipped, blocked, not sent and why).
 - Background sending setup screen (notifications, Alarms & reminders, battery unrestricted, Samsung "Never sleeping apps" hint), linked from the dashboard and the schedule screen; dashboard warns when schedules exist but setup is incomplete.
 - Crash recovery is skipped at app start while the service is sending; the service runs it when it starts. SQLite `busy_timeout` set because the app and the service each hold a connection.
+## Release Phase 1: usability and drafts (analyze clean, 142 tests)
+- Bottom buttons are never hidden: list screens leave room for the Android gesture/navigation bar (extra space at the bottom of the dashboard, room under floating buttons), and form buttons (Save and review, Save schedule, Add to group) sit in the page so they rise above the keyboard.
+- New campaigns autosave as a draft shortly after each change (name, message, recipients, fallbacks); "Draft saved" shows in the title bar and "Saved as a draft" on leaving. Drafts open straight back into the editor from the dashboard; the campaign screen offers "Continue editing". Saving turns the same draft into a ready campaign.
+- Editing a ready campaign never turns it back into a draft; leaving with unsaved edits asks "Discard changes?".
