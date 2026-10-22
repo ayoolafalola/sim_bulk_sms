@@ -34,7 +34,7 @@ void main() {
     addTearDown(() => t.runAsync(db.close));
   }
 
-  Future<void> app(WidgetTester t, FakeBackground bg, {FakeMessagesApp? messages}) async {
+  Future<void> app(WidgetTester t, FakeBackground bg, {FakeMessagesApp? messages, FakeMessagesService? inbox}) async {
     t.view.physicalSize = const Size(1080, 2400);
     t.view.devicePixelRatio = 3;
     addTearDown(t.view.reset);
@@ -46,6 +46,7 @@ void main() {
         smsServiceProvider.overrideWithValue(sms),
         capabilitiesProvider.overrideWith((ref) async => androidFallback),
         messagesAppProvider.overrideWithValue(messages ?? FakeMessagesApp()),
+        messagesServiceProvider.overrideWithValue(inbox ?? FakeMessagesService(isDefaultApp: bg.current.defaultSms, bg: bg)),
         phoneContactsServiceProvider.overrideWithValue(_Contacts()),
       ],
       child: const SimBulkSmsApp(), // the real app, including its return-to-app checks
@@ -65,14 +66,16 @@ void main() {
     final bg = FakeBackground(nothingGranted);
     await app(t, bg);
     appRouter.go('/');
-    await settle(t, until: find.text('Welcome to SIM-based Bulk SMS'));
-    expect(find.text('Welcome to SIM-based Bulk SMS'), findsOneWidget);
+    await settle(t, until: find.text('Welcome to Comeriver Messages'));
+    expect(find.text('Welcome to Comeriver Messages'), findsOneWidget);
 
     await t.tap(find.text('Get started'));
-    await settle(t, until: find.text('Send SMS'));
+    await settle(t, until: find.text('Default messaging app'));
     expect(find.text('Skip for now'), findsOneWidget);
     expect(find.textContaining('keep reminding you'), findsOneWidget);
-    await t.tap(find.text('Allow'));
+    await t.ensureVisible(find.text('Make default'));
+    await t.pump();
+    await t.tap(find.text('Make default'));
     await settle(t, until: find.text('On'));
     expect(find.text('On'), findsOneWidget);
     await t.tap(find.text('Next'));
@@ -88,7 +91,7 @@ void main() {
     await t.tap(find.text('Next'));
     await settle(t, until: find.text('Almost there'));
     expect(find.text('Notifications'), findsOneWidget);
-    expect(find.text('Send SMS'), findsNothing); // granted during setup
+    expect(find.text('Default messaging app'), findsNothing); // done during setup
 
     await t.tap(find.text('Start using the app'));
     await settle(t, until: find.text('Fix now'));
@@ -98,25 +101,45 @@ void main() {
 
     // Granting the rest (as if done in system settings) clears the warning on the next check.
     bg.current = everythingGranted;
-    t.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
-    t.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await settle(t, until: find.text('Recent campaigns'));
+    // Leave the app and come back (lifecycle steps in Flutter's allowed order).
+    for (final s in [AppLifecycleState.inactive, AppLifecycleState.hidden, AppLifecycleState.paused,
+      AppLifecycleState.hidden, AppLifecycleState.inactive, AppLifecycleState.resumed]) {
+      t.binding.handleAppLifecycleStateChanged(s);
+    }
+    await settle(t);
     await settle(t);
     expect(find.text('Fix now'), findsNothing);
   });
 
-  testWidgets('App setup checklist: refused-for-good SMS opens app settings', (t) async {
+  testWidgets('App setup checklist: refused-for-good contacts opens app settings', (t) async {
     await openDb(t, onboarded: true);
-    final bg = FakeBackground(const BackgroundStatus(notifications: true, exactAlarms: true,
-        batteryUnrestricted: true, serviceRunning: false, sms: false, smsPermanentlyDenied: true));
+    final bg = FakeBackground(const BackgroundStatus(notifications: false, exactAlarms: true,
+        batteryUnrestricted: true, serviceRunning: false, contacts: false, contactsPermanentlyDenied: true));
     await app(t, bg);
     appRouter.go('/settings/setup');
     await settle(t, until: find.text('Open app settings'));
-    expect(find.textContaining('1 required item is missing'), findsOneWidget);
+    expect(find.textContaining('1 required item is missing'), findsOneWidget); // notifications
+    await t.scrollUntilVisible(find.text('Open app settings'), 200, scrollable: find.byType(Scrollable).last);
     expect(find.textContaining('won\'t ask again'), findsOneWidget);
+    await t.ensureVisible(find.text('Open app settings'));
+    await t.pump();
     await t.tap(find.text('Open app settings'));
     await settle(t);
     expect(bg.opened, ['app']);
+  });
+
+  testWidgets('not the default messaging app: Messages tab offers to become default', (t) async {
+    await openDb(t, onboarded: true);
+    final bg = FakeBackground(everythingGranted);
+    final inbox = FakeMessagesService(isDefaultApp: false, bg: bg);
+    await app(t, bg, inbox: inbox);
+    appRouter.go('/messages');
+    await settle(t, until: find.text('Make default messaging app'));
+    expect(find.text('Your texts, here'), findsOneWidget);
+    inbox.receive(1, '+2348031234567', 'Hello');
+    await t.tap(find.text('Make default messaging app'));
+    await settle(t, until: find.text('Hello'));
+    expect(find.text('+2348031234567'), findsOneWidget);
   });
 
   testWidgets('SMS off: messages go through the Messages app, one confirmed tap each', (t) async {

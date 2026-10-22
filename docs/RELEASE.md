@@ -1,6 +1,6 @@
-# Releasing SIM-based Bulk SMS
+# Releasing Comeriver Messages
 
-App ID (Android and iOS): `com.comeriver.simbulksms.app` · version in `pubspec.yaml` (`1.0.0+1` = name 1.0.0, build 1).
+App ID (Android and iOS): `com.comeriver.messages` · version in `pubspec.yaml` (`1.0.0+1` = name 1.0.0, build 1).
 Bump the build number (`+2`, `+3`…) for every upload; Google Play refuses a repeated build number.
 
 ## Two Android builds

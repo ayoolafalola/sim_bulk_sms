@@ -253,7 +253,7 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
             TextField(
               controller: _name,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Campaign name', border: OutlineInputBorder()),
+              decoration: const InputDecoration(labelText: 'Campaign name'),
               onChanged: (_) {
                 setState(() {});
                 _changed();
@@ -266,7 +266,7 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
               maxLines: 8,
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
-                  labelText: 'Message', alignLabelWithHint: true, border: OutlineInputBorder()),
+                  labelText: 'Message', alignLabelWithHint: true),
               onChanged: (_) {
                 setState(() {}); // live text counter
                 _changed();
@@ -331,7 +331,7 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
                   padding: const EdgeInsets.only(top: 8),
                   child: TextFormField(
                     initialValue: _fallbacks[k],
-                    decoration: InputDecoration(labelText: '{$k}', border: const OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: '{$k}'),
                     onChanged: (v) {
                       _fallbacks[k] = v;
                       _changed();

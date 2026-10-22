@@ -4,6 +4,12 @@
     <uses-permission android:name="android.permission.SEND_SMS" />
     <!-- Only to list SIM subscriptions -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <!-- Default messaging app (role "android.app.role.SMS"): read, receive and store texts -->
+    <uses-permission android:name="android.permission.READ_SMS" />
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.RECEIVE_MMS" />
+    <uses-permission android:name="android.permission.RECEIVE_WAP_PUSH" />
+    <uses-permission android:name="android.permission.WRITE_SMS" />
     <!-- Read-only: names and numbers for "Import from phone" -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <!-- Background sending: foreground service while sending, exact wake-up for schedules,
@@ -15,7 +21,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <!-- Deliberately NOT declared: READ_SMS, RECEIVE_SMS, WRITE_CONTACTS, READ_PHONE_NUMBERS -->
+    <!-- Deliberately NOT declared: WRITE_CONTACTS, READ_PHONE_NUMBERS, READ_CALL_LOG -->
     <application
         android:label="@string/app_name"
         android:name="${applicationName}"
@@ -42,6 +48,59 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- Opened by other apps to text someone ("Send SMS" in Contacts, sms: links). -->
+        <activity-alias
+            android:name=".ComposeAlias"
+            android:targetActivity=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SENDTO" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="sms" />
+                <data android:scheme="smsto" />
+                <data android:scheme="mms" />
+                <data android:scheme="mmsto" />
+            </intent-filter>
+        </activity-alias>
+        <!-- Incoming texts: delivered only to the default messaging app. -->
+        <receiver
+            android:name=".SmsDeliverReceiver"
+            android:permission="android.permission.BROADCAST_SMS"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_DELIVER" />
+            </intent-filter>
+        </receiver>
+        <!-- Incoming picture/group messages (MMS). -->
+        <receiver
+            android:name=".MmsReceiver"
+            android:permission="android.permission.BROADCAST_WAP_PUSH"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.WAP_PUSH_DELIVER" />
+                <data android:mimeType="application/vnd.wap.mms-message" />
+            </intent-filter>
+        </receiver>
+        <!-- "Reply with message" when declining a call. -->
+        <service
+            android:name=".QuickReplyService"
+            android:permission="android.permission.SEND_RESPOND_VIA_MESSAGE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.RESPOND_VIA_MESSAGE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="sms" />
+                <data android:scheme="smsto" />
+                <data android:scheme="mms" />
+                <data android:scheme="mmsto" />
+            </intent-filter>
+        </service>
+        <!-- Sent / delivered reports for personal texts. -->
+        <receiver android:name=".SmsStatusReceiver" android:exported="false" />
+        <!-- Reply / Mark as read from an incoming-text notification. -->
+        <receiver android:name=".NotificationActionReceiver" android:exported="false" />
         <service
             android:name=".SendService"
             android:exported="false"

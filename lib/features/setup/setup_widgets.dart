@@ -13,12 +13,19 @@ Future<void> fixSetupItem(WidgetRef ref, SetupItem item, SetupStatus s) async {
   final permanent = s.permanentlyDenied.contains(item);
   switch (item) {
     case SetupItem.sms:
-      if (permanent) {
-        await bg.openAppSettings();
-      } else {
-        await ref.read(smsServiceProvider).requestRequiredPermissions();
-        ref.invalidate(capabilitiesProvider);
-      }
+      // Become the default messaging app (this grants the SMS permissions). If Android
+      // won't show the prompt again, open its default-apps settings instead.
+      final messages = ref.read(messagesServiceProvider);
+      final sms = ref.read(smsServiceProvider);
+      final recheck = ref.read(backgroundStatusVersionProvider.notifier);
+      final inbox = ref.read(messagesVersionProvider.notifier);
+      if (messages != null && !await messages.requestDefault()) await messages.openDefaultAppsSettings();
+      if (await messages?.isDefault() ?? false) await sms.requestRequiredPermissions();
+      // Bump through notifiers captured up front: these rebuilds may retire this widget's ref.
+      recheck.state++;
+      inbox.state++;
+      ref.invalidate(capabilitiesProvider);
+      return;
     case SetupItem.notifications:
       if (permanent || !await bg.requestNotifications()) await bg.openNotificationSettings();
     case SetupItem.exactAlarms:
@@ -48,6 +55,7 @@ class SetupItemCard extends ConsumerWidget {
     final permanent = status.permanentlyDenied.contains(item);
     final scheme = Theme.of(context).colorScheme;
     final opensSettings = permanent || item == SetupItem.exactAlarms || item == SetupItem.battery;
+    final label = item == SetupItem.sms ? 'Make default' : permanent ? 'Open app settings' : opensSettings ? 'Open settings' : 'Allow';
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -73,7 +81,7 @@ class SetupItemCard extends ConsumerWidget {
                 const SizedBox(height: 8),
                 FilledButton.tonal(
                   onPressed: () => fixSetupItem(ref, item, status),
-                  child: Text(permanent ? 'Open app settings' : opensSettings ? 'Open settings' : 'Allow'),
+                  child: Text(label),
                 ),
               ],
             ]),

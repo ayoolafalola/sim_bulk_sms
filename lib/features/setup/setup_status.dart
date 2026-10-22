@@ -12,9 +12,10 @@ class SetupItemInfo {
 }
 
 const setupInfo = <SetupItem, SetupItemInfo>{
-  SetupItem.sms: SetupItemInfo('Send SMS',
-      'Lets the app send messages through your SIM automatically. Carrier charges apply.',
-      ifMissing: 'Messages open in your Messages app instead, one tap each.'),
+  SetupItem.sms: SetupItemInfo('Default messaging app',
+      'Lets the app send and receive your texts and send campaigns through your SIM automatically. '
+          'Your existing messages stay where they are. Carrier charges apply.',
+      ifMissing: 'Messages open in your Messages app instead, one tap each, and your texts aren\'t shown here.'),
   SetupItem.notifications: SetupItemInfo('Notifications',
       'Shows progress while sending and tells you when a scheduled run finishes or has a problem.',
       ifMissing: 'You won\'t see sending progress or results when the app is closed.'),
@@ -65,7 +66,7 @@ class SetupStatus {
   factory SetupStatus.fromAndroid(BackgroundStatus b, {bool store = isStoreBuild}) => SetupStatus(
         required: store ? storeRequired : defaultRequired,
         granted: {
-          SetupItem.sms: b.sms,
+          SetupItem.sms: b.defaultSms,
           SetupItem.notifications: b.notifications,
           SetupItem.exactAlarms: b.exactAlarms,
           SetupItem.battery: b.batteryUnrestricted,

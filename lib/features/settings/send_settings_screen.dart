@@ -107,7 +107,7 @@ class _SendSettingsScreenState extends ConsumerState<SendSettingsScreen> {
                   controller: ctrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(labelText: 'Messages', border: OutlineInputBorder(), isDense: true),
+                  decoration: const InputDecoration(labelText: 'Messages', isDense: true),
                   onChanged: (_) => _update(set(_parse(ctrl, fallback))),
                 ),
             ]),

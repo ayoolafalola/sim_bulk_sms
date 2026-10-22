@@ -1,0 +1,87 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'providers.dart';
+import 'sending_providers.dart';
+
+/// Bottom navigation for the main tabs. Also: sends a fresh install to the
+/// first-launch setup, keeps the inbox live (new texts, status updates), opens
+/// the conversation a notification or another app asked for, and shows an
+/// unread count on Messages and a dot on Settings while setup is incomplete.
+class AppShell extends ConsumerStatefulWidget {
+  const AppShell({super.key, required this.shell});
+  final StatefulNavigationShell shell;
+
+  @override
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  StreamSubscription<String>? _events;
+
+  @override
+  void initState() {
+    super.initState();
+    final svc = ref.read(messagesServiceProvider);
+    if (svc != null) {
+      _events = svc.events.listen((type) {
+        ref.read(messagesVersionProvider.notifier).state++;
+        if (type == 'launch') _openLaunch();
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) => _openLaunch()); // opened from a notification / another app
+    }
+  }
+
+  @override
+  void dispose() {
+    _events?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _openLaunch() async {
+    final l = await ref.read(messagesServiceProvider)?.takeLaunch();
+    if (l == null || !mounted) return;
+    if (l.threadId != null) {
+      context.push('/messages/thread/${l.threadId}');
+    } else if (l.address != null && l.address!.isNotEmpty) {
+      context.push(Uri(path: '/messages/compose', queryParameters: {'to': l.address!, if (l.body != null) 'body': l.body!})
+          .toString());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(onboardingDoneProvider, (_, next) {
+      if (next.valueOrNull == false) context.go('/welcome');
+    });
+    final setup = ref.watch(setupStatusProvider).valueOrNull;
+    final setupMissing = setup != null && !setup.complete;
+    final unread = (ref.watch(conversationsProvider).valueOrNull ?? const []).fold<int>(0, (n, c) => n + c.unread);
+    final shell = widget.shell;
+    return Scaffold(
+      body: shell,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: shell.currentIndex,
+        // Tapping the current tab again returns it to its top screen.
+        onDestinationSelected: (i) => shell.goBranch(i, initialLocation: i == shell.currentIndex),
+        destinations: [
+          NavigationDestination(
+            icon: Badge(isLabelVisible: unread > 0, label: Text('$unread'), child: const Icon(Icons.chat_bubble_outline)),
+            selectedIcon: Badge(isLabelVisible: unread > 0, label: Text('$unread'), child: const Icon(Icons.chat_bubble)),
+            label: 'Messages',
+          ),
+          const NavigationDestination(
+              icon: Icon(Icons.campaign_outlined), selectedIcon: Icon(Icons.campaign), label: 'Campaigns'),
+          const NavigationDestination(
+              icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: 'Contacts'),
+          NavigationDestination(
+            icon: Badge(isLabelVisible: setupMissing, child: const Icon(Icons.settings_outlined)),
+            selectedIcon: Badge(isLabelVisible: setupMissing, child: const Icon(Icons.settings)),
+            label: 'Settings',
+          ),
+        ],
+      ),
+    );
+  }
+}

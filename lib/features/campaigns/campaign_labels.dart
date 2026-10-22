@@ -2,6 +2,7 @@ import '../../domain/models/campaign.dart';
 import '../../domain/models/schedule.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/send_limits.dart';
+import '../common/ui.dart';
 
 /// User-facing wording. `sent` means handed to the carrier (or to Messages on
 /// iOS), never "delivered".
@@ -54,3 +55,12 @@ String? pausedReasonText(Campaign c, {DateTime? now}) {
   final which = c.pausedReason == 'hourly_limit' ? 'Hourly limit' : 'Daily limit';
   return '$which reached. Resumes automatically at ${formatWhen(c.resumeAt!, now: now)}.';
 }
+
+/// Tag colour for a campaign status (the label text always says it too).
+Tone campaignTone(CampaignStatus s) => switch (s) {
+      CampaignStatus.completed => Tone.success,
+      CampaignStatus.running || CampaignStatus.awaitingUserAction || CampaignStatus.paused => Tone.warn,
+      CampaignStatus.failed || CampaignStatus.partiallyCompleted => Tone.danger,
+      CampaignStatus.ready => Tone.info,
+      _ => Tone.neutral,
+    };

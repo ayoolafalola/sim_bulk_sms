@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sim_bulk_sms/app/capability_providers.dart';
 import 'package:sim_bulk_sms/app/providers.dart';
 import 'package:sim_bulk_sms/app/router.dart';
+import 'package:sim_bulk_sms/app/theme.dart';
 import 'package:sim_bulk_sms/data/database/app_database.dart';
 import 'package:sim_bulk_sms/data/repositories/settings_repository.dart';
 import 'package:sim_bulk_sms/data/repositories/campaign_repository.dart';
@@ -163,7 +164,7 @@ void main() {
     expect(find.text('Save and review').hitTestable(), findsOneWidget);
   });
 
-  testWidgets('dashboard: last buttons scroll clear of the navigation bar', (t) async {
+  testWidgets('campaigns home: the last card scrolls clear of the navigation bar', (t) async {
     t.view.physicalSize = const Size(1080, 1500);
     t.view.devicePixelRatio = 3;
     t.view.viewPadding = const FakeViewPadding(bottom: 144); // 48 logical px gesture/nav bar
@@ -178,13 +179,13 @@ void main() {
                     platform: 'android', recipientCount: 1, createdAt: DateTime(2026)),
             ])),
       ],
-      child: const MaterialApp(home: DashboardScreen()),
+      child: MaterialApp(theme: buildTheme(Brightness.light), home: const DashboardScreen()),
     ));
     await t.pumpAndSettle();
-    await t.scrollUntilVisible(find.text('Groups').last, 200, scrollable: find.byType(Scrollable).first);
-    await t.drag(find.byType(Scrollable).first, const Offset(0, -2000));
+    await t.drag(find.byType(Scrollable).first, const Offset(0, -3000));
     await t.pumpAndSettle();
-    final groups = t.getRect(find.widgetWithText(OutlinedButton, 'Groups'));
-    expect(groups.bottom, lessThanOrEqualTo(1500 / 3 - 48));
+    final last = t.getRect(find.text('C7'));
+    // Clear of the 48 px bar and of the floating "New campaign" button above it.
+    expect(last.bottom, lessThanOrEqualTo(1500 / 3 - 48 - 56));
   });
 }

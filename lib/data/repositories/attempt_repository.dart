@@ -142,6 +142,23 @@ class AttemptRepository {
       "updated_at=? WHERE id=?",
       [_now(), _now(), campaignId]);
 
+  /// Remembers that the attempt's text is row [smsId] in the phone's message store.
+  Future<void> linkStoredMessage(int attemptId, int smsId) async {
+    final a = await _db.query('send_attempts', columns: ['campaign_recipient_id'], where: 'id = ?', whereArgs: [attemptId]);
+    if (a.isEmpty) return;
+    await _db.insert('stored_messages', {
+      'sms_id': smsId, 'campaign_recipient_id': a.first['campaign_recipient_id'], 'created_at': _now(),
+    }, conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  /// Attempt outcomes since [since] (all channels), for the weekly summary.
+  Future<Map<RecipientStatus, int>> statusCountsSince(DateTime since) async {
+    final rows = await _db.rawQuery(
+        'SELECT status, COUNT(*) AS n FROM send_attempts WHERE initiated_at >= ? GROUP BY status',
+        [since.toUtc().toIso8601String()]);
+    return {for (final r in rows) recipientStatusFromDb(r['status'] as String): r['n'] as int};
+  }
+
   /// When this phone handed messages to the carrier since [since] (Android
   /// attempts that got past `prepared`). Used for the hourly/daily limits.
   Future<List<DateTime>> sendTimesSince(DateTime since) async {

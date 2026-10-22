@@ -129,6 +129,7 @@ class SendOrchestrator {
         final res = await sms.sendMessage(SmsSendRequest(
             campaignRecipientId: r.id, attemptId: attemptId, phoneE164: r.phone,
             body: r.renderedMessage, subscriptionId: subscriptionId ?? campaign.subscriptionId));
+        if (res.storedMessageId != null) await attempts.linkStoredMessage(attemptId, res.storedMessageId!);
         if (res.status == RecipientStatus.failed) {
           await attempts.applyResult(attemptId, RecipientStatus.failed,
               errorCode: res.errorCode, errorMessage: res.errorMessage);

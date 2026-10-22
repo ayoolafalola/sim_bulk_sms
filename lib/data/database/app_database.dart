@@ -2,8 +2,9 @@ import 'package:sqflite/sqflite.dart';
 import 'schema_v1.dart';
 import 'schema_v2.dart';
 import 'schema_v3.dart';
+import 'schema_v5.dart';
 
-const currentSchemaVersion = 3;
+const currentSchemaVersion = 5; // v4 is reserved for email (Part D)
 
 /// Opens the app database with foreign keys enforced. Pass a [DatabaseFactory]
 /// so tests can use an in-memory sqflite_common_ffi database.
@@ -20,7 +21,7 @@ Future<Database> openAppDatabase(DatabaseFactory factory, String path) {
       },
       onCreate: (db, v) async {
         final batch = db.batch();
-        for (final s in [...schemaV1, ...schemaV2, ...schemaV3]) { batch.execute(s); }
+        for (final s in [...schemaV1, ...schemaV2, ...schemaV3, ...schemaV5]) { batch.execute(s); }
         await batch.commit(noResult: true);
       },
       // Each step runs in sqflite's upgrade transaction: all or nothing.
@@ -30,6 +31,9 @@ Future<Database> openAppDatabase(DatabaseFactory factory, String path) {
         }
         if (from < 3) {
           for (final s in schemaV3) { await db.execute(s); }
+        }
+        if (from < 5) {
+          for (final s in schemaV5) { await db.execute(s); }
         }
       },
     ),

@@ -3,70 +3,82 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sim_bulk_sms/app/capability_providers.dart';
 import 'package:sim_bulk_sms/app/providers.dart';
+import 'package:sim_bulk_sms/app/sending_providers.dart';
+import 'package:sim_bulk_sms/app/theme.dart';
+import 'package:sim_bulk_sms/domain/models/campaign.dart';
+import 'package:sim_bulk_sms/domain/models/statuses.dart';
 import 'package:sim_bulk_sms/features/dashboard/dashboard_screen.dart';
+import 'package:sim_bulk_sms/features/setup/setup_status.dart';
 import 'package:sim_bulk_sms/platform/sms/sms_capability_service.dart';
+import '../support/fakes.dart';
 
-Widget host(SmsCapabilities caps, DashboardStats stats) => ProviderScope(
+const androidOk = SmsCapabilities(platform: SmsPlatform.android, canSendDirectly: true,
+    usesComposerHandoff: false, canSelectSim: false, blocker: DirectSendBlocker.none);
+
+Campaign campaign(int id, String name, CampaignStatus s, {int n = 10, String template = 'Hi'}) => Campaign(
+    id: id, name: name, messageTemplate: template, status: s, platform: 'android', recipientCount: n,
+    createdAt: DateTime(2026, 10, 20));
+
+Widget host(DashboardStats stats, {SmsCapabilities caps = androidOk, SetupStatus? setup}) => ProviderScope(
       overrides: [
         capabilitiesProvider.overrideWith((ref) async => caps),
         dashboardStatsProvider.overrideWith((ref) async => stats),
+        setupStatusProvider.overrideWith((ref) async => setup),
       ],
-      child: const MaterialApp(home: DashboardScreen()),
+      child: MaterialApp(theme: buildTheme(Brightness.light), home: const DashboardScreen()),
     );
 
 void main() {
-  const empty = DashboardStats(contacts: 3, groups: 2, drafts: 1, recent: []);
-
-  testWidgets('shows persisted counts and empty campaign state', (t) async {
-    await t.pumpWidget(host(
-        const SmsCapabilities(platform: SmsPlatform.ios, canSendDirectly: false,
-            usesComposerHandoff: true, canSelectSim: false, blocker: DirectSendBlocker.none,
-            messageForUser: 'iOS requires you to tap Send in the Messages composer for each message.'),
-        empty));
+  testWidgets('no campaigns yet: one clear next step', (t) async {
+    await t.pumpWidget(host(const DashboardStats(contacts: 0, groups: 0, drafts: 0, recent: [])));
     await t.pumpAndSettle();
-    expect(find.text('3'), findsOneWidget);
-    expect(find.text('2'), findsOneWidget);
-    expect(find.text('1'), findsOneWidget);
-    expect(find.text('No campaigns yet.'), findsOneWidget);
+    expect(find.text('No campaigns yet'), findsOneWidget);
+    expect(find.text('Add contacts'), findsOneWidget);
+    expect(find.text('New campaign'), findsWidgets); // the floating button
   });
 
-  testWidgets('iOS limitation is shown honestly', (t) async {
-    await t.pumpWidget(host(
-        const SmsCapabilities(platform: SmsPlatform.ios, canSendDirectly: false,
-            usesComposerHandoff: true, canSelectSim: false, blocker: DirectSendBlocker.none,
-            messageForUser: 'iOS requires you to tap Send in the Messages composer for each message.'),
-        empty));
+  testWidgets('with contacts but no campaigns: offers to write the first one', (t) async {
+    await t.pumpWidget(host(const DashboardStats(contacts: 12, groups: 1, drafts: 0, recent: [])));
     await t.pumpAndSettle();
-    expect(find.textContaining('tap Send'), findsOneWidget);
-    expect(find.textContaining('directly through your SIM'), findsNothing);
+    expect(find.textContaining('You have 12 contacts'), findsOneWidget);
   });
 
-  testWidgets('Android with unresolved Play policy does not claim direct sending', (t) async {
-    await t.pumpWidget(host(
-        const SmsCapabilities(platform: SmsPlatform.android, canSendDirectly: false,
-            usesComposerHandoff: false, canSelectSim: false, blocker: DirectSendBlocker.playPolicyUnresolved,
-            messageForUser: 'Direct sending is disabled in this build until Google Play SMS permission eligibility is resolved.'),
-        empty));
+  testWidgets('week summary, drafts and recent campaigns with progress', (t) async {
+    await t.pumpWidget(host(DashboardStats(
+      contacts: 40, groups: 2, drafts: 1, sentThisWeek: 200, deliveredThisWeek: 150,
+      recent: [
+        campaign(1, 'Youth camp', CampaignStatus.draft, template: 'Registration is open'),
+        campaign(2, 'Harvest Sunday', CampaignStatus.completed, n: 4),
+      ],
+      progress: const {2: {RecipientStatus.delivered: 3, RecipientStatus.failed: 1}},
+    )));
     await t.pumpAndSettle();
-    expect(find.textContaining('Direct sending is disabled'), findsOneWidget);
+    expect(find.text('200'), findsOneWidget);
+    expect(find.text('75%'), findsOneWidget);
+    expect(find.text('DRAFTS'), findsOneWidget);
+    expect(find.text('Youth camp'), findsOneWidget);
+    expect(find.text('RECENT'), findsOneWidget);
+    expect(find.text('Completed'), findsOneWidget);
+    expect(find.text('4 people · 3 sent · 3 delivered · 1 failed'), findsOneWidget);
   });
 
-  testWidgets('direct-send capability is announced when real', (t) async {
-    await t.pumpWidget(host(
-        const SmsCapabilities(platform: SmsPlatform.android, canSendDirectly: true,
-            usesComposerHandoff: false, canSelectSim: false, blocker: DirectSendBlocker.none),
-        empty));
+  testWidgets('Messages-app mode is explained', (t) async {
+    await t.pumpWidget(host(const DashboardStats(contacts: 1, groups: 0, drafts: 0, recent: []), caps: androidFallback));
     await t.pumpAndSettle();
-    expect(find.textContaining('directly through your SIM'), findsOneWidget);
+    expect(find.textContaining('Messages open in your Messages app'), findsOneWidget);
   });
 
-  testWidgets('missing SMS permission offers a button to grant it', (t) async {
-    await t.pumpWidget(host(
-        const SmsCapabilities(platform: SmsPlatform.android, canSendDirectly: false,
-            usesComposerHandoff: false, canSelectSim: false, blocker: DirectSendBlocker.permissionDenied,
-            messageForUser: 'SMS permission is required to send through your SIM.'),
-        empty));
+  testWidgets('direct sending needs no note', (t) async {
+    await t.pumpWidget(host(const DashboardStats(contacts: 1, groups: 0, drafts: 0, recent: [])));
     await t.pumpAndSettle();
-    expect(find.text('Allow SMS permission'), findsOneWidget);
+    expect(find.textContaining('Messages app'), findsNothing);
+  });
+
+  testWidgets('missing permissions: non-dismissible banner with Fix now', (t) async {
+    await t.pumpWidget(host(const DashboardStats(contacts: 1, groups: 0, drafts: 0, recent: []),
+        setup: SetupStatus.fromAndroid(nothingGranted, store: false)));
+    await t.pumpAndSettle();
+    expect(find.text('4 required permissions are off'), findsOneWidget);
+    expect(find.text('Fix now'), findsOneWidget);
   });
 }

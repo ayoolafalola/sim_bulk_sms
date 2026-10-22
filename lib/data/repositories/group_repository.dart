@@ -48,6 +48,14 @@ class GroupRepository {
   Future<void> removeContact(int groupId, int contactId) => _db.delete('group_contacts',
       where: 'group_id = ? AND contact_id = ?', whereArgs: [groupId, contactId]);
 
+  /// Names of the groups a contact is in.
+  Future<List<String>> groupNamesOf(int contactId) async => [
+        for (final r in await _db.rawQuery('''
+          SELECT g.name FROM recipient_groups g JOIN group_contacts gc ON gc.group_id = g.id
+          WHERE gc.contact_id = ? ORDER BY g.name COLLATE NOCASE''', [contactId]))
+          r['name'] as String,
+      ];
+
   Future<List<Contact>> members(int groupId) async {
     final rows = await _db.rawQuery('''
       SELECT c.* FROM contacts c JOIN group_contacts gc ON gc.contact_id = c.id

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   Google Play "store" build overlay, merged when built with the STORE_BUILD=true dart-define.
-  Removes everything Google Play restricts for this app's category: sending happens in the
-  user's Messages app (SMS intent), so no SMS or phone-state permission, no background send
-  service, no battery-optimisation exemption. Guarded by test/unit/manifest_test.dart.
+  Removes everything Google Play restricts unless the app is a default messaging app: sending
+  happens in the user's Messages app (SMS intent), so no SMS or phone-state permission, no
+  default-messaging-app components, no background send service, no battery-optimisation exemption. Guarded by test/unit/manifest_test.dart.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
@@ -13,7 +13,18 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" tools:node="remove" />
     <uses-permission android:name="android.permission.WAKE_LOCK" tools:node="remove" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" tools:node="remove" />
+    <uses-permission android:name="android.permission.READ_SMS" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECEIVE_SMS" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECEIVE_MMS" tools:node="remove" />
+    <uses-permission android:name="android.permission.RECEIVE_WAP_PUSH" tools:node="remove" />
+    <uses-permission android:name="android.permission.WRITE_SMS" tools:node="remove" />
     <application>
         <service android:name=".SendService" tools:node="remove" />
+        <activity-alias android:name=".ComposeAlias" tools:node="remove" />
+        <receiver android:name=".SmsDeliverReceiver" tools:node="remove" />
+        <receiver android:name=".MmsReceiver" tools:node="remove" />
+        <service android:name=".QuickReplyService" tools:node="remove" />
+        <receiver android:name=".SmsStatusReceiver" tools:node="remove" />
+        <receiver android:name=".NotificationActionReceiver" tools:node="remove" />
     </application>
 </manifest>

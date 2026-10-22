@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart' show Database;
+import '../data/repositories/attempt_repository.dart';
 import '../data/repositories/campaign_repository.dart';
 import '../data/repositories/contact_repository.dart';
 import '../data/repositories/group_repository.dart';
@@ -37,20 +38,38 @@ final groupsProvider = FutureProvider<List<GroupSummary>>((ref) {
 });
 
 class DashboardStats {
-  const DashboardStats({required this.contacts, required this.groups, required this.drafts, required this.recent});
+  const DashboardStats({
+    required this.contacts, required this.groups, required this.drafts, required this.recent,
+    this.sentThisWeek = 0, this.deliveredThisWeek = 0, this.progress = const {},
+  });
   final int contacts, groups, drafts;
+  /// Newest first, drafts included.
   final List<Campaign> recent;
+  /// Messages handed to the carrier / Messages app in the last 7 days, and how many were reported delivered.
+  final int sentThisWeek, deliveredThisWeek;
+  /// Recipient status counts per recent campaign id (for progress bars).
+  final Map<int, Map<RecipientStatus, int>> progress;
 }
 
 /// Every figure is derived from persisted data (FR-01).
 final dashboardStatsProvider = FutureProvider<DashboardStats>((ref) async {
   ref.watch(dataVersionProvider);
   final campaigns = ref.watch(campaignRepositoryProvider);
+  final recent = await campaigns.recent(limit: 20);
+  final week = await AttemptRepository(ref.watch(databaseProvider))
+      .statusCountsSince(DateTime.now().subtract(const Duration(days: 7)));
   return DashboardStats(
     contacts: await ref.watch(contactRepositoryProvider).count(),
     groups: await ref.watch(groupRepositoryProvider).count(),
     drafts: await campaigns.countByStatus(CampaignStatus.draft),
-    recent: await campaigns.recent(),
+    recent: recent,
+    sentThisWeek: (week[RecipientStatus.submitted] ?? 0) + (week[RecipientStatus.sent] ?? 0) +
+        (week[RecipientStatus.delivered] ?? 0),
+    deliveredThisWeek: week[RecipientStatus.delivered] ?? 0,
+    progress: {
+      for (final c in recent)
+        if (c.status != CampaignStatus.draft) c.id: await campaigns.statusCounts(c.id),
+    },
   );
 });
 
@@ -117,3 +136,6 @@ final onboardingDoneProvider = FutureProvider<bool>((ref) {
   ref.watch(dataVersionProvider);
   return ref.watch(settingsRepositoryProvider).flag('onboarding_done');
 });
+
+/// Campaigns deleted with Undo still available: hidden until really deleted.
+final pendingCampaignDeletesProvider = StateProvider<Set<int>>((ref) => const {});

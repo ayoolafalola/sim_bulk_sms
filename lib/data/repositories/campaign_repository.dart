@@ -177,6 +177,28 @@ class CampaignRepository {
   Future<int> countByStatus(CampaignStatus s) async => Sqflite.firstIntValue(await _db.rawQuery(
           'SELECT COUNT(*) FROM campaigns WHERE status = ?', [_campaignToDb[s]])) ?? 0;
 
+  /// For texts in the phone's message store: which campaign each one was sent by.
+  Future<Map<int, ({int campaignId, String name})>> campaignsForStoredMessages(Iterable<int> smsIds) async {
+    final ids = smsIds.toList();
+    if (ids.isEmpty) return const {};
+    final rows = await _db.rawQuery('''
+      SELECT s.sms_id, c.id AS campaign_id, c.name FROM stored_messages s
+      JOIN campaign_recipients r ON r.id = s.campaign_recipient_id JOIN campaigns c ON c.id = r.campaign_id
+      WHERE s.sms_id IN (${List.filled(ids.length, '?').join(',')})''', ids);
+    return {
+      for (final r in rows) r['sms_id'] as int: (campaignId: r['campaign_id'] as int, name: r['name'] as String),
+    };
+  }
+
+  /// Numbers (E.164) that campaigns texted since [since]: replies from them are "campaign replies".
+  Future<Set<String>> recentlyTextedNumbers(DateTime since) async => {
+        for (final r in await _db.rawQuery(
+            "SELECT DISTINCT phone_number_snapshot AS p FROM campaign_recipients "
+            "WHERE status IN ('submitted','sent','delivered') AND updated_at >= ?",
+            [since.toUtc().toIso8601String()]))
+          r['p'] as String,
+      };
+
   Future<List<CampaignRecipient>> recipients(int campaignId) async {
     final rows = await _db.query('campaign_recipients', where: 'campaign_id = ?', whereArgs: [campaignId], orderBy: 'id');
     return rows.map((r) => CampaignRecipient(

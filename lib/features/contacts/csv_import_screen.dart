@@ -149,7 +149,7 @@ class _CsvImportScreenState extends ConsumerState<CsvImportScreen> {
           key: ValueKey('$label/$value/$_hasHeader'),
           isExpanded: true,
           initialValue: value,
-          decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+          decoration: InputDecoration(labelText: label),
           items: [
             if (optional) const DropdownMenuItem<int?>(value: null, child: Text('— None —')),
             for (var c = 0; c < _width; c++)
@@ -355,7 +355,7 @@ class _CsvImportScreenState extends ConsumerState<CsvImportScreen> {
             key: ValueKey('group/$_groupId/$_newGroupName'),
             isExpanded: true,
             initialValue: _newGroupName != null ? -1 : _groupId,
-            decoration: const InputDecoration(labelText: 'Add everyone to a group (optional)', border: OutlineInputBorder()),
+            decoration: const InputDecoration(labelText: 'Add everyone to a group (optional)'),
             items: [
               const DropdownMenuItem<int?>(value: null, child: Text('No group')),
               for (final g in groups) DropdownMenuItem<int?>(value: g.id, child: Text('${g.name} (${g.memberCount})')),

@@ -176,7 +176,7 @@ class _ImportPhoneContactsScreenState extends ConsumerState<ImportPhoneContactsS
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
               child: TextField(
                 decoration: const InputDecoration(
-                    prefixIcon: Icon(Icons.search), hintText: 'Search name or number', border: OutlineInputBorder()),
+                    prefixIcon: Icon(Icons.search), hintText: 'Search name or number'),
                 onChanged: _search,
               ),
             ),

@@ -1,5 +1,5 @@
 /// Shown on the home screen, in notifications and in the store listing.
-const appName = 'SIM-based Bulk SMS';
+const appName = 'Comeriver Messages';
 
 /// The Google Play "store" build: no SMS-sending permission and no background
 /// send service; messages go through the Messages app and schedules remind

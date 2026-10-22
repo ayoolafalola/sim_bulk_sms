@@ -5,6 +5,7 @@ import '../../app/providers.dart';
 import '../../domain/models/contact.dart';
 import 'groups_screen.dart';
 import '../common/page_layout.dart';
+import '../common/ui.dart';
 
 class GroupDetailScreen extends ConsumerWidget {
   const GroupDetailScreen({super.key, required this.groupId});
@@ -85,14 +86,25 @@ class GroupDetailScreen extends ConsumerWidget {
             : ListView(padding: pagePadding(context, extra: fabClearance).copyWith(left: 0, right: 0, top: 0), children: [
                 for (final c in list)
                   ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+                    leading: InitialsAvatar(c.name),
                     title: Text(c.name),
                     subtitle: Text(c.phoneNormalized ?? c.phoneRaw),
                     trailing: IconButton(
                       tooltip: 'Remove from group',
                       icon: const Icon(Icons.remove_circle_outline),
                       onPressed: () async {
+                        // Removing is instant and can be undone (re-adds the same contact).
                         await repo.removeContact(groupId, c.id!);
                         _refresh(ref);
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Removed ${c.name} from the group'),
+                          action: SnackBarAction(label: 'Undo', onPressed: () async {
+                            await repo.addContacts(groupId, [c.id!]);
+                            _refresh(ref);
+                          }),
+                        ));
                       },
                     ),
                   ),

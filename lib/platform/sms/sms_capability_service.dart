@@ -1,7 +1,11 @@
 import '../../domain/models/statuses.dart';
 
 enum SmsPlatform { android, ios }
-enum DirectSendBlocker { none, permissionDenied, permissionPermanentlyDenied, noTelephony, noSim, playPolicyUnresolved }
+enum DirectSendBlocker {
+  none, permissionDenied, permissionPermanentlyDenied, noTelephony, noSim, playPolicyUnresolved,
+  /// Android: SMS permissions may only be used while this is the default messaging app (Play policy).
+  notDefaultApp,
+}
 
 class SmsCapabilities {
   const SmsCapabilities({
@@ -53,10 +57,12 @@ class SmsEvent {
 /// Android: `submitted` now, final result arrives via [events].
 /// iOS: `awaitingUserAction` now; composer result arrives via [events].
 class SmsOperationResult {
-  const SmsOperationResult(this.status, {this.errorCode, this.errorMessage});
+  const SmsOperationResult(this.status, {this.errorCode, this.errorMessage, this.storedMessageId});
   final RecipientStatus status;
   final String? errorCode;
   final String? errorMessage;
+  /// Android default messaging app: the text's row in the phone's message store.
+  final int? storedMessageId;
 }
 
 abstract class SmsCapabilityService {

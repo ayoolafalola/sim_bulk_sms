@@ -12,7 +12,7 @@ Policy: https://support.google.com/googleplay/android-developer/answer/10208820
 
 - **Core functionality / exception:** Device automation.
 - **Description (draft):**
-  "SIM-based Bulk SMS lets a user send their own text messages to contacts they chose, from their own SIM,
+  "Comeriver Messages lets a user send their own text messages to contacts they chose, from their own SIM,
   automatically at times they set. Users create a campaign (message + recipient groups), confirm the cost, and
   either send it now or schedule it (a date and time, or weekly on chosen days). At the scheduled time the app
   sends the messages without further interaction, pausing between messages and respecting user-set hourly and

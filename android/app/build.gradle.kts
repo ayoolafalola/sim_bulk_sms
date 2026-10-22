@@ -35,7 +35,7 @@ android {
 
     defaultConfig {
         // Final, published ID: never change it after release (the Kotlin package/namespace can differ).
-        applicationId = "com.comeriver.simbulksms.app"
+        applicationId = "com.comeriver.messages"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

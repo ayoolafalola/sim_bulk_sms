@@ -33,6 +33,7 @@ class BackgroundBridge(private val activity: Activity) : MethodChannel.MethodCal
                 "serviceRunning" to SendService.isRunning,
                 "telephony" to activity.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY),
                 "sms" to PermissionMemory.granted(activity, Manifest.permission.SEND_SMS),
+                "defaultSms" to MessageStore.isDefault(activity),
                 "smsPermanentlyDenied" to PermissionMemory.permanentlyDenied(activity, Manifest.permission.SEND_SMS),
                 "contacts" to PermissionMemory.granted(activity, Manifest.permission.READ_CONTACTS),
                 "contactsPermanentlyDenied" to PermissionMemory.permanentlyDenied(activity, Manifest.permission.READ_CONTACTS),

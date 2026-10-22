@@ -1,6 +1,6 @@
 # Google Play store listing (draft)
 
-- **App name** (max 30): SIM-based Bulk SMS
+- **App name** (max 30): Comeriver Messages
 - **Category:** Communication · **Tags:** messaging, SMS · **Contains ads:** No · **In-app purchases:** No
 - **Contact email:** _[your support email]_ · **Website:** _[optional]_ · **Privacy policy:** _[GitHub Pages URL, see docs/privacy]_
 
@@ -10,7 +10,7 @@ Send personalised SMS to your groups through your own SIM, now or on a schedule.
 
 ## Full description
 
-SIM-based Bulk SMS sends text messages to the people in your contact groups using your own phone and SIM, so
+Comeriver Messages sends text messages to the people in your contact groups using your own phone and SIM, so
 messages come from your number and are billed by your carrier as normal SMS. There is no account, no server and
 no per-message fee from us.
 

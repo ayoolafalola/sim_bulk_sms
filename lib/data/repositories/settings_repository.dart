@@ -39,4 +39,12 @@ class SettingsRepository {
 
   Future<void> setFlag(String key, bool on) => _db.insert('app_settings', {'key': key, 'value': on ? '1' : '0'},
       conflictAlgorithm: ConflictAlgorithm.replace);
+
+  /// The SIM chosen for a conversation (dual-SIM phones), or null.
+  Future<int?> simForThread(int threadId) async => int.tryParse(
+      (await _db.query('app_settings', where: 'key = ?', whereArgs: ['sim_thread_$threadId'])).firstOrNull?['value']
+              as String? ?? '');
+
+  Future<void> setSimForThread(int threadId, int subId) => _db.insert(
+      'app_settings', {'key': 'sim_thread_$threadId', 'value': '$subId'}, conflictAlgorithm: ConflictAlgorithm.replace);
 }

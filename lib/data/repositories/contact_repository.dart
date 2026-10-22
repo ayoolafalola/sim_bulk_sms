@@ -84,6 +84,12 @@ class ContactRepository {
     return rows.map(_fromRow).toList();
   }
 
+  /// The app contact with this number, if any.
+  Future<Contact?> findByE164(String e164) async {
+    final rows = await _db.query('contacts', where: 'phone_normalized = ?', whereArgs: [e164], limit: 1);
+    return rows.isEmpty ? null : _fromRow(rows.first);
+  }
+
   Future<Set<String>> existingNormalized() async {
     final rows = await _db.query('contacts', columns: ['phone_normalized'], where: 'phone_normalized IS NOT NULL');
     return rows.map((r) => r['phone_normalized'] as String).toSet();

@@ -13,8 +13,10 @@ import '../../platform/sms/sms_capability_service.dart';
 import '../../domain/services/schedule_calculator.dart';
 import '../../data/repositories/schedule_repository.dart';
 import '../../domain/services/send_limits.dart';
-import '../setup/setup_status.dart';
 import 'campaign_composer.dart';
+import '../../app/app_info.dart';
+import '../../app/theme.dart';
+import '../common/ui.dart';
 import 'campaign_labels.dart';
 import '../common/page_layout.dart';
 
@@ -194,17 +196,21 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
     }
   }
 
-  /// SMS permission for automatic sending: ask, or open app settings if refused for good.
+  /// Automatic sending: become the default messaging app (Play only allows SMS
+  /// permissions for it), then make sure the SMS permissions are granted.
   Future<void> _enableAutomatic() async {
-    final setup = ref.read(setupStatusProvider).valueOrNull;
-    if (setup?.permanentlyDenied.contains(SetupItem.sms) ?? false) {
-      await ref.read(backgroundSendServiceProvider)?.openAppSettings();
-      _snack('Turn on SMS under Permissions, then come back.');
+    final messages = ref.read(messagesServiceProvider);
+    if (messages == null) return;
+    var ok = await messages.requestDefault();
+    if (!ok) {
+      await messages.openDefaultAppsSettings();
+      _snack('Choose $appName under SMS app, then come back.');
       return;
     }
-    final ok = await ref.read(smsServiceProvider).requestRequiredPermissions();
+    ok = await ref.read(smsServiceProvider).requestRequiredPermissions();
     ref.invalidate(capabilitiesProvider);
     ref.read(backgroundStatusVersionProvider.notifier).state++;
+    ref.read(messagesVersionProvider.notifier).state++;
     _snack(ok ? 'Automatic sending is on.' : 'SMS permission was not granted.');
   }
 
@@ -249,6 +255,27 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
   }
 
   Future<void> _delete() async {
+    final c = ref.read(campaignProvider(_id)).valueOrNull;
+    if (c?.status == CampaignStatus.draft) {
+      // A draft has no history to lose: delete with Undo instead of asking.
+      final pending = ref.read(pendingCampaignDeletesProvider.notifier);
+      final repo = ref.read(campaignRepositoryProvider);
+      final version = ref.read(dataVersionProvider.notifier);
+      final messenger = ScaffoldMessenger.of(context);
+      pending.state = {...pending.state, _id};
+      context.go('/');
+      final closed = messenger.showSnackBar(SnackBar(
+        content: Text('Deleted draft “${c!.name}”'),
+        action: SnackBarAction(label: 'Undo', onPressed: () {}),
+      ));
+      final id = _id;
+      closed.closed.then((reason) async {
+        if (reason != SnackBarClosedReason.action) await repo.delete(id);
+        pending.state = {...pending.state}..remove(id);
+        version.state++;
+      });
+      return;
+    }
     if (!await _confirm('Delete campaign?', 'Its recipient list and send history will be removed.', 'Delete')) return;
     await ref.read(campaignRepositoryProvider).delete(_id);
     _refresh();
@@ -339,10 +366,17 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           bottomNavigationBar: SafeArea(child: _actions(c, caps, list)),
           body: ListView(padding: pagePadding(context, extra: 24), children: [
             // Wrap, not Row: long status labels or large text sizes must not overflow.
-            Wrap(spacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              Chip(label: Text(campaignStatusLabel(c.status))),
-              Text('${c.recipientCount} recipients'),
+            Wrap(spacing: 10, runSpacing: 6, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              StatusTag(campaignStatusLabel(c.status), tone: campaignTone(c.status)),
+              Text('${c.recipientCount} recipients', style: TextStyle(color: AppColors.of(context).muted)),
             ]),
+            if (c.recipientCount > 0) ...[
+              const SizedBox(height: 12),
+              ProgressLine(
+                value: list.where((r) => r.status != RecipientStatus.pending).length / c.recipientCount,
+                tone: campaignTone(c.status) == Tone.danger ? Tone.danger : Tone.success,
+              ),
+            ],
             if (pausedReasonText(c) case final why?)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
@@ -352,8 +386,14 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
                   Expanded(child: Text(why)),
                 ]),
               ),
-            const SizedBox(height: 8),
-            Text(c.messageTemplate, style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: AppColors.of(context).surface, borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.of(context).line)),
+              child: Text(c.messageTemplate, style: const TextStyle(height: 1.45)),
+            ),
             if (c.sourceCampaignId != null)
               Align(
                 alignment: Alignment.centerLeft,
@@ -399,7 +439,8 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
                 ? 'Open next message (${done + 1} of ${list.length})'
                 : c.status == CampaignStatus.paused ? 'Resume' : 'Send'),
           ));
-          if (cap.platform == SmsPlatform.android && cap.blocker == DirectSendBlocker.permissionDenied) {
+          if (cap.platform == SmsPlatform.android &&
+              (cap.blocker == DirectSendBlocker.notDefaultApp || cap.blocker == DirectSendBlocker.permissionDenied)) {
             buttons.add(TextButton(onPressed: _enableAutomatic, child: const Text('Turn on automatic sending')));
           }
         }

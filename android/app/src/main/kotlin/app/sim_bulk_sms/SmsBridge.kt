@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.Looper
 import android.telephony.SmsManager
 import android.telephony.SubscriptionManager
+import android.telephony.TelephonyManager
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import io.flutter.plugin.common.EventChannel
@@ -35,7 +36,8 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
     private var pendingPermissionResult: MethodChannel.Result? = null
 
     private data class Op(val recipientId: Int, val parts: Int, var sentOk: Int = 0,
-                          var delivered: Int = 0, var failed: Boolean = false, var finished: Boolean = false)
+                          var delivered: Int = 0, var failed: Boolean = false, var finished: Boolean = false,
+                          val row: Uri? = null) // its row in the phone's message store (default app only)
     private val ops = ConcurrentHashMap<Int, Op>() // attemptId -> aggregate state
 
     private val ACTION_SENT = "app.sim_bulk_sms.SMS_SENT"
@@ -50,15 +52,18 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
                     if (resultCode == Activity.RESULT_OK) {
                         op.sentOk++
                         if (op.sentOk == op.parts && !op.failed && !op.finished) {
+                            op.row?.let { MessageStore.markSent(c, it) }
                             emit("sendSucceeded", op.recipientId, attemptId)
                         }
                     } else if (!op.failed) {
                         op.failed = true; op.finished = true
+                        op.row?.let { MessageStore.markFailed(c, it, resultCode) }
                         emit("sendFailed", op.recipientId, attemptId, mapError(resultCode), "SMS send failed")
                     }
                 } else if (i.action == ACTION_DELIVERED && resultCode == Activity.RESULT_OK) {
                     op.delivered++
                     if (op.delivered == op.parts) {
+                        op.row?.let { MessageStore.markDelivered(c, it) }
                         emit("deliveryReported", op.recipientId, attemptId); op.finished = true; ops.remove(attemptId)
                     }
                 }
@@ -82,7 +87,10 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
             "getCapabilities" -> result.success(mapOf(
                 "hasTelephony" to ctx.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY),
                 "sendSmsGranted" to has(Manifest.permission.SEND_SMS),
-                "activeSubscriptions" to subscriptions().size))
+                // Listing SIMs needs the Phone permission; it's only used to *choose* a SIM.
+                "activeSubscriptions" to subscriptions().size,
+                "simReady" to simReady(),
+                "isDefaultSms" to MessageStore.isDefault(ctx)))
             "requestPermissions" -> requestPermissions(result)
             "getSubscriptions" -> result.success(subscriptions())
             "openComposer" -> openComposer(call, result)
@@ -107,6 +115,18 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
         if (requestCode != 7421) return
         pendingPermissionResult?.success(has(Manifest.permission.SEND_SMS)); pendingPermissionResult = null
         emit("permissionChanged", 0, 0)
+    }
+
+    /** Whether any SIM is inserted and ready. Needs no permission (unlike listing subscriptions). */
+    private fun simReady(): Boolean {
+        val tm = ctx.getSystemService(TelephonyManager::class.java) ?: return false
+        if (tm.simState == TelephonyManager.SIM_STATE_READY) return true
+        @Suppress("DEPRECATION")
+        val slots = if (Build.VERSION.SDK_INT >= 30) tm.activeModemCount else tm.phoneCount
+        for (slot in 0 until slots) {
+            if (tm.getSimState(slot) == TelephonyManager.SIM_STATE_READY) return true
+        }
+        return false
     }
 
     private fun subscriptions(): List<Map<String, Any?>> {
@@ -150,19 +170,22 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
         try {
             val mgr = manager(subId)
             val parts = mgr.divideMessage(body)
-            ops[attemptId] = Op(recipientId, parts.size)
+            // As the default messaging app, campaign texts go into the person's conversation too.
+            ops[attemptId] = Op(recipientId, parts.size, row = MessageStore.insertOutgoing(ctx, phone, body, subId))
             val sent = ArrayList<PendingIntent?>(); val deliv = ArrayList<PendingIntent?>()
             for (p in parts.indices) { sent.add(pi(ACTION_SENT, attemptId, p)); deliv.add(pi(ACTION_DELIVERED, attemptId, p)) }
             emit("sendStarted", recipientId, attemptId)
             if (parts.size == 1) mgr.sendTextMessage(phone, null, body, sent[0], deliv[0])
             else mgr.sendMultipartTextMessage(phone, null, parts, sent, deliv)
-            result.success(null) // accepted by API only; outcome arrives via callbacks
+            // Accepted by the API only; the outcome arrives via callbacks. The stored row's id
+            // lets the app label this text in the person's conversation.
+            result.success(ops[attemptId]?.row?.lastPathSegment?.toLongOrNull())
         } catch (e: SecurityException) {
-            ops.remove(attemptId); result.error("permission_denied", "Security exception", null)
+            ops.remove(attemptId)?.row?.let { MessageStore.markFailed(ctx, it, -1) }; result.error("permission_denied", "Security exception", null)
         } catch (e: IllegalArgumentException) {
-            ops.remove(attemptId); result.error("invalid_argument", "Invalid recipient or message", null)
+            ops.remove(attemptId)?.row?.let { MessageStore.markFailed(ctx, it, -1) }; result.error("invalid_argument", "Invalid recipient or message", null)
         } catch (e: Exception) {
-            ops.remove(attemptId); result.error("send_exception", e.javaClass.simpleName, null)
+            ops.remove(attemptId)?.row?.let { MessageStore.markFailed(ctx, it, -1) }; result.error("send_exception", e.javaClass.simpleName, null)
         }
     }
 

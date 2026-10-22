@@ -16,3 +16,4 @@
 - Send limits don't apply on iPhone, where every message is sent by hand.
 - Messages-app fallback: Android doesn't report whether you tapped Send in the Messages app, so those messages are recorded as sent on your confirmation. They aren't counted towards the send limits and get no delivery reports.
 - "Refused for good" detection relies on Android's rationale flag after the app has asked at least once; some phones (and permissions turned off from system settings) may show the normal Allow button first, which then does nothing — use App setup › Open app settings.
+- Part B1: picture and group messages (MMS) are not downloaded yet. While this is the default messaging app, an incoming MMS only shows a notice; switch back to the previous messaging app to read it. Do not publish before Part C.

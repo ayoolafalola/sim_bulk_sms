@@ -73,7 +73,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Widget
     setState(() => _finishing = true);
     await ref.read(settingsRepositoryProvider).setFlag('onboarding_done', true);
     ref.read(dataVersionProvider.notifier).state++;
-    if (mounted) context.go('/');
+    if (mounted) context.go('/messages');
   }
 
   @override

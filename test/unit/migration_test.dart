@@ -44,7 +44,7 @@ void main() {
     expect(old.pausedReason, isNull);
   });
 
-  test('a v2 database upgrades to v3: settings default, campaigns kept', () async {
+  test('a v2 database upgrades to the current version: settings default, campaigns kept', () async {
     final dir = Directory.systemTemp.createTempSync('sim_bulk_sms_migration_v2');
     addTearDown(() => dir.deleteSync(recursive: true));
     final path = p.join(dir.path, 'app.db');
@@ -59,7 +59,8 @@ void main() {
 
     final db = await openAppDatabase(databaseFactoryFfi, path);
     addTearDown(db.close);
-    expect(await db.getVersion(), 3);
+    expect(await db.getVersion(), currentSchemaVersion);
+    expect(await db.query('stored_messages'), isEmpty); // v5
     final s = await SettingsRepository(db).load();
     expect((s.delaySeconds, s.hourlyLimit, s.dailyLimit, s.defaultRegion), (3, 100, 300, 'NG'));
     final c = (await CampaignRepository(db).recent()).single;
