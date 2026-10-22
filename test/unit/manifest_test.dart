@@ -70,7 +70,7 @@ void main() {
     expect(gradle, contains('applicationId = "com.comeriver.messages"'));
     expect(gradle, contains('targetSdk = 36'));
     expect(File('android/app/src/main/res/values/strings.xml').readAsStringSync(),
-        contains('<string name="app_name">Comeriver Messages</string>'));
+        contains('<string name="app_name">Messages++</string>'));
     expect(File('ios/Runner.xcodeproj/project.pbxproj').readAsStringSync(),
         contains('PRODUCT_BUNDLE_IDENTIFIER = com.comeriver.messages;'));
   });

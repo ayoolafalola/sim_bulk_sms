@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Messages++ icon concepts</title>
+<style>
+  :root { --bg: #f7f5f0; --card: #ffffff; --fg: #16201c; --muted: #5b6763; --line: #e6e2da; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #101513; --card: #18201d; --fg: #e8ecea; --muted: #a7b1ad; --line: #2a332f; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  p.lead { margin: 0 0 24px; color: var(--muted); }
+  .concept { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 20px; margin-bottom: 20px; }
+  .concept h2 { margin: 0; font-size: 1.15rem; }
+  .concept .why { margin: 4px 0 16px; color: var(--muted); }
+  .row { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-end; }
+  figure { margin: 0; text-align: center; }
+  figcaption { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .ic { display: block; overflow: hidden; }
+  .round { border-radius: 50%; }
+  .squircle { border-radius: 22.5%; }
+  .home { width: 168px; height: 168px; border-radius: 22px; padding: 22px 0 0;
+          background: linear-gradient(160deg, #2b3a5c, #0e1a2b 60%, #1d2f2a); display: flex; flex-direction: column; align-items: center; }
+  .home span { color: #fff; font-size: 12px; margin-top: 8px; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .themed { background: #dce7e2; }
+  @media (prefers-color-scheme: dark) { .themed { background: #1f2a26; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#23856F"/><stop offset="1" stop-color="#124E41"/>
+    </linearGradient>
+  </defs>
+
+  <!-- A: one bubble, "++" inside -->
+  <symbol id="a-art" viewBox="0 0 108 108">
+    <path d="M42 30h24a16 16 0 0 1 16 16v10a16 16 0 0 1-16 16H50l-15 11 3-11.5A16 16 0 0 1 26 56V46a16 16 0 0 1 16-16z" fill="currentColor"/>
+    <g stroke="var(--mark)" stroke-width="5.5" stroke-linecap="round">
+      <path d="M37.5 51h11M43 45.5v11M59.5 51h11M65 45.5v11"/>
+    </g>
+  </symbol>
+  <symbol id="a" viewBox="0 0 108 108">
+    <rect width="108" height="108" fill="url(#g)"/>
+    <use href="#a-art" style="color:#fff;--mark:#1B6B5A"/>
+  </symbol>
+
+  <!-- B: one message reaching many -->
+  <symbol id="b-art" viewBox="0 0 108 108">
+    <g stroke="var(--soft)" stroke-width="3" stroke-linecap="round" fill="none">
+      <path d="M62 51 C72 44 76 38 84 33M64 52h24M62 53 C72 60 76 66 84 71"/>
+    </g>
+    <g fill="var(--soft)"><circle cx="85" cy="32" r="6"/><circle cx="89" cy="52" r="6"/><circle cx="85" cy="72" r="6"/></g>
+    <path d="M34 34h16a14 14 0 0 1 14 14v6a14 14 0 0 1-14 14H40l-13 9 3-10A14 14 0 0 1 20 54v-6a14 14 0 0 1 14-14z" fill="currentColor"/>
+    <g stroke="var(--mark)" stroke-width="4.5" stroke-linecap="round">
+      <path d="M31 51h8M35 47v8M47 51h8M51 47v8"/>
+    </g>
+  </symbol>
+  <symbol id="b" viewBox="0 0 108 108">
+    <rect width="108" height="108" fill="url(#g)"/>
+    <use href="#b-art" style="color:#fff;--mark:#1B6B5A;--soft:#BFEADF"/>
+  </symbol>
+
+  <!-- C: two bubbles (personal + campaigns) with a "++" badge -->
+  <symbol id="c-art" viewBox="0 0 108 108">
+    <path d="M56 24h16a14 14 0 0 1 14 14v6a14 14 0 0 1-12 13.8l2 9.2-10-9H56a14 14 0 0 1-14-14v-6a14 14 0 0 1 14-14z" fill="var(--soft)"/>
+    <path d="M38 42h18a14 14 0 0 1 14 14v8a14 14 0 0 1-14 14H44l-13 9 3-10.3A14 14 0 0 1 24 64v-8a14 14 0 0 1 14-14z" fill="currentColor"/>
+    <g fill="var(--mark)"><circle cx="37" cy="60" r="3.6"/><circle cx="47" cy="60" r="3.6"/><circle cx="57" cy="60" r="3.6"/></g>
+    <circle cx="80" cy="30" r="13" fill="var(--badge)"/>
+    <g stroke="var(--badgemark)" stroke-width="3.2" stroke-linecap="round">
+      <path d="M71.5 30h6M74.5 27v6M82.5 30h6M85.5 27v6"/>
+    </g>
+  </symbol>
+  <symbol id="c" viewBox="0 0 108 108">
+    <rect width="108" height="108" fill="url(#g)"/>
+    <use href="#c-art" style="color:#fff;--mark:#1B6B5A;--soft:#BFEADF;--badge:#F2B33D;--badgemark:#3A2A00"/>
+  </symbol>
+</svg>
+
+<main>
+  <h1>Messages++ icon concepts</h1>
+  <p class="lead">Three directions in the app's green. Each is shown as Android shows it (round), as iPhone shows it
+    (rounded square), on a home screen, at notification size, and as Android 13+'s one-colour themed icon.
+    Pick one (or mix: e.g. A's shape with C's badge) and I'll produce every size.</p>
+
+  <section class="concept">
+    <h2>A · Plus bubble</h2>
+    <p class="why">One message bubble with "++" inside: says "messaging app, plus more". The simplest and most
+      readable when small.</p>
+    <div class="row">
+      <figure><svg class="ic round" width="128" height="128"><use href="#a"/></svg><figcaption>Android</figcaption></figure>
+      <figure><svg class="ic squircle" width="128" height="128"><use href="#a"/></svg><figcaption>iPhone</figcaption></figure>
+      <figure><div class="home"><svg class="ic round" width="64" height="64"><use href="#a"/></svg><span>Messages++</span></div><figcaption>Home screen</figcaption></figure>
+      <figure><svg class="ic round" width="32" height="32"><use href="#a"/></svg><figcaption>Small</figcaption></figure>
+      <figure><svg class="ic round themed" width="64" height="64"><use href="#a-art" style="color:#1F4D42;--mark:#dce7e2"/></svg><figcaption>Themed</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="concept">
+    <h2>B · One to many</h2>
+    <p class="why">A "++" bubble sending out to three people: messaging plus campaigns to groups, the app's two
+      halves in one picture.</p>
+    <div class="row">
+      <figure><svg class="ic round" width="128" height="128"><use href="#b"/></svg><figcaption>Android</figcaption></figure>
+      <figure><svg class="ic squircle" width="128" height="128"><use href="#b"/></svg><figcaption>iPhone</figcaption></figure>
+      <figure><div class="home"><svg class="ic round" width="64" height="64"><use href="#b"/></svg><span>Messages++</span></div><figcaption>Home screen</figcaption></figure>
+      <figure><svg class="ic round" width="32" height="32"><use href="#b"/></svg><figcaption>Small</figcaption></figure>
+      <figure><svg class="ic round themed" width="64" height="64"><use href="#b-art" style="color:#1F4D42;--mark:#dce7e2;--soft:#4f7a6e"/></svg><figcaption>Themed</figcaption></figure>
+    </div>
+  </section>
+
+  <section class="concept">
+    <h2>C · Two bubbles + badge</h2>
+    <p class="why">A conversation (two bubbles) with an amber "++" badge. The warmest and most distinctive; the badge
+      gets small at notification size.</p>
+    <div class="row">
+      <figure><svg class="ic round" width="128" height="128"><use href="#c"/></svg><figcaption>Android</figcaption></figure>
+      <figure><svg class="ic squircle" width="128" height="128"><use href="#c"/></svg><figcaption>iPhone</figcaption></figure>
+      <figure><div class="home"><svg class="ic round" width="64" height="64"><use href="#c"/></svg><span>Messages++</span></div><figcaption>Home screen</figcaption></figure>
+      <figure><svg class="ic round" width="32" height="32"><use href="#c"/></svg><figcaption>Small</figcaption></figure>
+      <figure><svg class="ic round themed" width="64" height="64"><use href="#c-art" style="color:#1F4D42;--mark:#dce7e2;--soft:#4f7a6e;--badge:#1F4D42;--badgemark:#dce7e2"/></svg><figcaption>Themed</figcaption></figure>
+    </div>
+  </section>
+</main>
+</body>
+</html>

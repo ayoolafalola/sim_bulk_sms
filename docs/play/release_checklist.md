@@ -9,7 +9,7 @@
    docs/DEFAULT_SMS_TEST.md (become default, receive/reply, campaign, contacts sync, email test, switch back).
 6. Privacy policy live at https://messages.comeriver.com/privacy (and terms at /terms); URL in Play Console, store
    listing and, with Gmail, the Google OAuth consent screen.
-7. Play Console: create the app (name "Comeriver Messages", default language, App, Free), complete App content
+7. Play Console: create the app (name "Messages++ by Comeriver", default language, App, Free), complete App content
    (privacy policy, ads, app access + reviewer_notes.md, content rating, target audience, data safety,
    permission declarations), store listing (store_listing.md + graphics).
 8. Upload the .aab to **Internal testing** first, install from Play on your phone, then promote to Production.

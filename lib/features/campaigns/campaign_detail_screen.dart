@@ -37,6 +37,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
   static const _live = {CampaignStatus.running, CampaignStatus.awaitingUserAction};
   Timer? _poll;
   DateTime? _watchUntil;
+  bool _wasLive = false;
   bool _busy = false;
 
   int get _id => widget.campaignId;
@@ -45,10 +46,19 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
   void initState() {
     super.initState();
     // Android results arrive asynchronously via callbacks: refresh while sending.
-    _poll = Timer.periodic(const Duration(seconds: 1), (_) {
+    // Only this campaign's data is re-read, and the screen keeps showing the current
+    // numbers while it does (no reload of the whole app, no spinner flashing).
+    _poll = Timer.periodic(const Duration(seconds: 2), (_) {
       final s = ref.read(campaignProvider(_id)).valueOrNull?.status;
       final starting = _watchUntil != null && DateTime.now().isBefore(_watchUntil!);
-      if ((s != null && _live.contains(s)) || starting) _refresh();
+      final live = (s != null && _live.contains(s)) || starting;
+      if (live) {
+        ref.invalidate(campaignProvider(_id));
+        ref.invalidate(campaignRecipientsProvider(_id));
+      } else if (_wasLive) {
+        _refresh(); // just finished: update the dashboard and the rest once
+      }
+      _wasLive = live;
     });
   }
 
@@ -202,6 +212,28 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
       return;
     }
     if (caps.platform == SmsPlatform.android && caps.usesComposerHandoff) {
+      // Everyone gets the same text: offer to put up to 20 numbers in one message.
+      if (pending.length > 1 && await orch.canBatch(_id)) {
+        if (!mounted) return;
+        final mode = await showDialog<String>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Send through your Messages app'),
+            content: const Text('Automatic sending is off. Everyone gets the same text, so you can send it to up to '
+                '$batchSize people at once, or one person at a time.\n\n'
+                'At once: your Messages app may send it as a group message. Everyone can then see each other\'s '
+                'numbers and replies, and it may cost more (MMS). That depends on your Messages app\'s settings.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              TextButton(onPressed: () => Navigator.pop(ctx, 'one'), child: const Text('One at a time')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, 'all'), child: const Text('$batchSize at once')),
+            ],
+          ),
+        );
+        if (mode == 'all') await _manualBatchNext();
+        if (mode == 'one') await _manualNext();
+        return;
+      }
       if (c.status == CampaignStatus.ready &&
           !await _confirm('Send through your Messages app?',
               'Automatic sending is off, so each of the ${pending.length} messages opens in your Messages app with '
@@ -213,6 +245,50 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
       return;
     }
     _snack(caps.messageForUser ?? 'Sending is not available on this device.');
+  }
+
+  /// How many numbers go in one Messages-app message when sending to all at once.
+  static const batchSize = 20;
+
+  /// Messages-app fallback, all at once: open the next batch, then ask whether it was sent.
+  Future<void> _manualBatchNext() async {
+    final orch = ref.read(sendOrchestratorProvider);
+    final app = ref.read(messagesAppProvider);
+    if (app == null) return;
+    setState(() => _busy = true);
+    try {
+      final b = await orch.startManualBatch(_id, size: batchSize);
+      if (b == null) {
+        _snack('Everyone has been handled.');
+        return;
+      }
+      if (!await app.openMany(b.phones, b.body)) {
+        await orch.finishManualBatch(b.attemptIds, sent: false, errorCode: 'no_messages_app');
+        _snack('No Messages app was found to send with.');
+        return;
+      }
+      if (!mounted) return;
+      final sent = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: Text('Did you send it to these ${b.phones.length} people?'),
+          content: Text('People ${b.from}–${b.to} of ${b.total}: ${b.names.take(3).join(', ')}'
+              '${b.names.length > 3 ? ' and ${b.names.length - 3} more' : ''}. '
+              'The phone can\'t tell the app whether you tapped Send.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not sent')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sent')),
+          ],
+        ),
+      );
+      await orch.finishManualBatch(b.attemptIds, sent: sent == true);
+    } catch (e) {
+      _snack('$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+      _refresh();
+    }
   }
 
   /// Messages-app fallback: open the next message, then ask whether it was sent.
@@ -411,6 +487,8 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
     final recipients = ref.watch(campaignRecipientsProvider(_id));
     final caps = ref.watch(capabilitiesProvider);
     return campaign.when(
+      // Re-reads while sending keep the page as it is until the new numbers arrive.
+      skipLoadingOnReload: true,
       loading: () => Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(appBar: AppBar(), body: const Center(child: Text('Could not load this campaign.'))),
       data: (c) {

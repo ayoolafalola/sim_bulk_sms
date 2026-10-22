@@ -23,18 +23,18 @@ Policy: https://support.google.com/googleplay/android-developer/answer/10208820
 - **When it isn't the default** (the user declined or later chose another app), it does not use the SMS
   permissions: campaigns open the user's Messages app one message at a time instead, and email still works.
 - **Description (draft):**
-  "Comeriver Messages is a messaging app: users read and reply to their SMS conversations, get notifications for
+  "Messages++ is a messaging app: users read and reply to their SMS conversations, get notifications for
   incoming texts with Reply and Mark as read, start new messages, and reply to declined calls with a text. It
   also lets them send their own personalised messages to groups of their contacts, now or on a schedule, from
   their own SIM, with delays and hourly/daily limits they set; those messages appear in each person's
   conversation. SMS permissions are used only while the app is the user's default SMS app. Messages are never
   uploaded; the app has no server."
 - **Video (60–90 s, screen recording):**
-  1. Fresh install › setup › "Make Comeriver Messages your default messaging app" › Android's prompt › Yes.
+  1. Fresh install › setup › "Make Messages++ your default messaging app" › Android's prompt › Yes.
   2. Receive a text from a second phone: notification › Reply from the notification.
   3. Messages tab › open the conversation › reply.
   4. Campaigns › a ready campaign to 2 numbers › Send › show both messages in their conversations.
-  5. Settings › Apps › Default apps › SMS: switch back to the old app; open Comeriver Messages: the Messages tab
+  5. Settings › Apps › Default apps › SMS: switch back to the old app; open Messages++: the Messages tab
      offers to become the default again and campaigns use the Messages app.
 
 ## 2. Foreground service (special use) — Foreground service permissions declaration

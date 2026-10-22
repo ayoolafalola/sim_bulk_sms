@@ -1,5 +1,7 @@
-/// Shown on the home screen, in notifications and in the store listing.
-const appName = 'Comeriver Messages';
+/// Shown on the home screen, in the app and in notifications.
+const appName = 'Messages++';
+/// The name in the stores.
+const appFullName = 'Messages++ by Comeriver';
 
 /// The Google Play "store" build: no SMS-sending permission and no background
 /// send service; messages go through the Messages app and schedules remind

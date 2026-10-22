@@ -152,7 +152,7 @@ class _ProScreenState extends ConsumerState<ProScreen> {
             Expanded(
               child: Text(
                 pro
-                    ? 'Pro is on${status.debugOverride ? ' (debug)' : ''}. Thank you for supporting Comeriver Messages.'
+                    ? 'Pro is on${status.debugOverride ? ' (debug)' : ''}. Thank you for supporting Messages++.'
                     : 'You\'re on the free app. Pro removes the limits and lets you change the signature.',
                 style: TextStyle(color: pro ? c.successFg : c.infoFg, fontWeight: FontWeight.w600),
               ),

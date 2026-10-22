@@ -66,8 +66,8 @@ void main() {
     final bg = FakeBackground(nothingGranted);
     await app(t, bg);
     appRouter.go('/');
-    await settle(t, until: find.text('Welcome to Comeriver Messages'));
-    expect(find.text('Welcome to Comeriver Messages'), findsOneWidget);
+    await settle(t, until: find.text('Welcome to Messages++'));
+    expect(find.text('Welcome to Messages++'), findsOneWidget);
 
     await t.tap(find.text('Get started'));
     await settle(t, until: find.text('Default messaging app'));
@@ -174,5 +174,51 @@ void main() {
     await settle(t, until: find.text('Send again'));
     final counts = (await t.runAsync(() => CampaignRepository(db).statusCounts(id)))!;
     expect(counts, {RecipientStatus.sent: 1, RecipientStatus.cancelled: 1});
+  });
+
+  testWidgets('SMS off, same text for everyone: up to 20 numbers in one Messages-app message', (t) async {
+    await openDb(t, onboarded: true);
+    late int id;
+    await t.runAsync(() async {
+      final repo = CampaignRepository(db);
+      id = await repo.createDraft(name: 'Choir', template: 'Practice at 6', platform: 'android');
+      await repo.saveSnapshot(id, [
+        for (var i = 1; i <= 3; i++) SnapshotRecipient(name: 'P$i', phoneE164: '+234$i', renderedMessage: 'Practice at 6'),
+      ]);
+    });
+    final messages = FakeMessagesApp();
+    await app(t, FakeBackground(nothingGranted), messages: messages);
+    appRouter.go('/campaigns/$id');
+    await settle(t, until: find.text('Open next message (1 of 3)'));
+    await t.tap(find.text('Open next message (1 of 3)'));
+    await settle(t, until: find.text('20 at once'));
+    expect(find.textContaining('may send it as a group message'), findsOneWidget);
+    await t.tap(find.text('20 at once'));
+    await settle(t, until: find.text('Did you send it to these 3 people?'));
+    expect(messages.opened, [('+2341,+2342,+2343', 'Practice at 6\nSent via messages.comeriver.com')]);
+    await t.tap(find.text('Sent'));
+    await settle(t, until: find.text('Send again'));
+    final counts = (await t.runAsync(() => CampaignRepository(db).statusCounts(id)))!;
+    expect(counts, {RecipientStatus.sent: 3});
+  });
+
+  testWidgets('while a campaign sends, the screen refreshes without flashing a spinner', (t) async {
+    await openDb(t, onboarded: true);
+    late int id;
+    await t.runAsync(() async {
+      final repo = CampaignRepository(db);
+      id = await repo.createDraft(name: 'Choir', template: 'Hi', platform: 'android');
+      await repo.saveSnapshot(id, const [SnapshotRecipient(name: 'Ada', phoneE164: '+2341', renderedMessage: 'Hi')]);
+      await repo.setStatus(id, CampaignStatus.running);
+    });
+    await app(t, FakeBackground(nothingGranted));
+    appRouter.go('/campaigns/$id');
+    await settle(t, until: find.text('Pause'));
+    for (var i = 0; i < 12; i++) { // several 2-second refreshes
+      await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+      await t.pump(const Duration(milliseconds: 500));
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('Choir'), findsOneWidget);
+    }
   });
 }

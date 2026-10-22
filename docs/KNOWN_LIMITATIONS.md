@@ -28,3 +28,4 @@
 - On Google Play the app learns a subscription ended when it next asks Play (app start or return); offline, the last confirmed Pro status lasts up to 7 days.
 - On the free app the signature is pre-filled in the Messages-app and iPhone composer; the user can delete it there before sending.
 - App Store subscriptions are written but untested until the iOS app is built and signed.
+- "20 at once" (Messages-app fallback): whether it goes as separate texts or a group MMS is decided by the user's Messages app and its settings; the app can't control or detect it, and records the batch as sent on the user's confirmation. iPhone still sends one at a time.

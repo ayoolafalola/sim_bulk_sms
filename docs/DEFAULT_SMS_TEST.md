@@ -3,7 +3,7 @@
 Keep your previous messaging app installed; you can switch back anytime (Settings › Apps › Default apps › SMS app).
 Your old texts are not touched by switching.
 
-1. Open the app › Messages tab › **Make default messaging app** › choose Comeriver Messages. The tab now lists
+1. Open the app › Messages tab › **Make default messaging app** › choose Messages++. The tab now lists
    your existing conversations with names and unread counts.
 2. **Receive with the app closed:** swipe the app away, text yourself from another phone. A notification appears;
    tap it — that conversation opens. Then open your old messaging app: the text is there too (same store).
@@ -55,5 +55,15 @@ Your old texts are not touched by switching.
     ends with "Test". Turn it off: no line.
 30. **Cancel:** Manage subscription › cancel; after the test renewal period, reopen the app: Free again.
 31. **Restore:** clear the app's data (or reinstall), Settings › Comeriver Pro › Restore purchases: Pro again.
+
+**Launch prep (Messages++)**
+
+32. **Name and icon:** the home screen shows the new two-bubble icon named "Messages++". With themed icons on
+    (Android 13+: Wallpaper & style › Themed icons) it turns one-colour. Notifications show the bubble icon in green.
+33. **No flashing:** send a campaign to a few numbers and watch its screen: the numbers and bar update smoothly,
+    with no spinner flashing.
+34. **20 at once:** switch to your old messaging app as default, make a campaign without placeholders to 3 of your
+    numbers, tap Send › "20 at once": your Messages app opens with all 3 numbers. Send, come back, "Sent".
+    Check whether your Messages app made it a group chat (depends on its settings).
 
 If anything misbehaves: `adb logcat -s SimBulkSms flutter` while reproducing, and note the step.

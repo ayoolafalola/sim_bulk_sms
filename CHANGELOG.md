@@ -144,3 +144,15 @@
   confirmed status counts for 7 days offline; App Store expiry from StoreKit 2. Every Pro feature is a
   `ProFeature` value, so more can be added to Pro later.
 - Docs: docs/BILLING_SETUP.md; privacy, terms, data safety, store listing and reviewer notes updated.
+
+## Launch prep: Messages++ (analyze clean, 270 tests; native changes not yet built)
+- Renamed **Messages++** on the phone (home screen, app, notifications, iOS display name) and **Messages++ by
+  Comeriver** in the stores, Settings footer, privacy policy, terms and docs. App id unchanged.
+- **New icon** (design C: two bubbles with an amber "++" badge): Android legacy + adaptive + themed (monochrome)
+  icons, a Messages++ status-bar icon for all notifications (tinted green), iOS icons (no alpha) and the Play 512 icon.
+  Source SVGs in assets/icon/src; `tool/make_icon.py` regenerates everything.
+- Campaign screen no longer flashes while sending: it re-reads only that campaign every 2 s, keeps showing the
+  current numbers while it does, and the progress bar glides. The rest of the app refreshes once when sending ends.
+- Messages-app fallback: when everyone gets the same text (no per-person placeholders), **"20 at once"** puts up to
+  20 numbers in one Messages-app message (Samsung: comma-separated, others: semicolons), with a warning that it may
+  become a group message; one "Did you send it?" per batch. One at a time stays available.

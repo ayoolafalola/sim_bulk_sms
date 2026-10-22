@@ -1,4 +1,4 @@
-# Releasing Comeriver Messages
+# Releasing Messages++
 
 App ID (Android and iOS): `com.comeriver.messages` · version in `pubspec.yaml` (`1.0.0+1` = name 1.0.0, build 1).
 Bump the build number (`+2`, `+3`…) for every upload; Google Play refuses a repeated build number.
@@ -57,9 +57,10 @@ submission are covered in Phase 7 together with iOS reminders.
 
 ## Icon
 
-Placeholder from `tool/make_icon.py`. To use a real design, replace `assets/icon/icon_full.png` (1024×1024, opaque)
-and `assets/icon/icon_foreground.png` (1024×1024, transparent, art within the middle ~60%), then run
-`python3 tool/make_icon.py --resize-only`.
+Messages++ icon (design C, two bubbles with an amber "++" badge; concepts in docs/design). The artwork is SVG in
+`assets/icon/src/`; `python3 tool/make_icon.py` renders it with Google Chrome and writes every size: Android legacy,
+adaptive (background / foreground / monochrome for themed icons), the notification icon, iOS, and
+`assets/icon/play_store_512.png` for the Play listing. Edit the SVGs and run it again to change the icon.
 
 ## Before each release
 

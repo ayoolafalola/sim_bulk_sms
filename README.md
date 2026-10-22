@@ -1,4 +1,4 @@
-# Comeriver Messages
+# Messages++ by Comeriver
 
 A messaging app for Android (and iPhone) that also sends **personalised messages to groups** of your contacts,
 by **text from your own SIM** or by **email**, now or on a schedule. App id `com.comeriver.messages`.

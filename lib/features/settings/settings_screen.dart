@@ -90,7 +90,7 @@ class SettingsScreen extends ConsumerWidget {
             _Row('Default country', country, () => context.push('/settings/send')),
           ]),
           const SizedBox(height: 24),
-          Center(child: Text('$appName · version 1.0.0', style: TextStyle(color: c.muted, fontSize: 12))),
+          Center(child: Text('$appFullName · version 1.0.0', style: TextStyle(color: c.muted, fontSize: 12))),
         ]),
       ),
     );

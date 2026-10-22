@@ -8,10 +8,10 @@ explains that it isn't set up and the Mailgun API can be used instead.
 
 ## 1. Google Cloud project
 
-1. https://console.cloud.google.com › create a project (e.g. "Comeriver Messages").
+1. https://console.cloud.google.com › create a project (e.g. "Messages++").
 2. APIs & Services › Library › **Gmail API** › Enable.
 3. APIs & Services › **OAuth consent screen** (Google Auth Platform):
-   - User type **External**; app name "Comeriver Messages"; support email; logo optional.
+   - User type **External**; app name "Messages++ by Comeriver"; support email; logo optional.
    - App domain: home page `https://messages.comeriver.com`, privacy policy `https://messages.comeriver.com/privacy`,
      terms `https://messages.comeriver.com/terms`; authorised domain `comeriver.com`.
    - Data access › Add scope `.../auth/gmail.send`.

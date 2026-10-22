@@ -145,7 +145,7 @@ class _EmailSettingsScreenState extends ConsumerState<EmailSettingsScreen> {
     String message;
     try {
       await sender.prepare();
-      final body = emailBodies('This is a test from Comeriver Messages. Your email settings work.', s);
+      final body = emailBodies('This is a test from Messages++. Your email settings work.', s);
       final r = await sender.send(OutgoingEmail(
           id: 'test-${DateTime.now().millisecondsSinceEpoch}', campaignId: 0, toAddress: address,
           subject: 'Test email', text: body.text, html: body.html));

@@ -69,6 +69,11 @@ class FakeMessagesApp implements MessagesApp {
     if (available) opened.add((phone, body));
     return available;
   }
+  @override
+  Future<bool> openMany(List<String> phones, String body) async {
+    if (available) opened.add((phones.join(','), body));
+    return available;
+  }
 }
 
 const androidFallback = SmsCapabilities(platform: SmsPlatform.android, canSendDirectly: false,

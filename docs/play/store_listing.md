@@ -1,6 +1,7 @@
 # Google Play store listing (draft)
 
-- **App name** (max 30): Comeriver Messages
+- **App name** (max 30): Messages++ by Comeriver
+- **Name on the phone:** Messages++
 - **Category:** Communication · **Tags:** messaging, SMS · **Contains ads:** No · **In-app purchases:** Yes (Comeriver Pro subscription)
 - **Developer:** Comeriver Limited · **Contact email:** messages@comeriver.com · **Website:** https://messages.comeriver.com
 - **Privacy policy:** https://messages.comeriver.com/privacy · **Terms:** https://messages.comeriver.com/terms
@@ -11,7 +12,7 @@ Your texts, plus personalised messages to your groups by SMS or email.
 
 ## Full description
 
-Comeriver Messages is your messaging app, with a superpower: send personalised messages to whole groups of your
+Messages++ is your messaging app, with a superpower: send personalised messages to whole groups of your
 contacts, by text from your own SIM or by email, now or on a schedule. Texts come from your number and are billed
 by your carrier as normal SMS. There is no account, no server and no per-message fee from us.
 
@@ -48,7 +49,7 @@ Your contacts and messages stay on your phone. Standard SMS charges from your ca
 
 ## Graphics to prepare
 
-- App icon 512×512: export from `assets/icon/icon_full.png` (`sips -z 512 512 assets/icon/icon_full.png --out icon-512.png`).
+- App icon 512×512: `assets/icon/play_store_512.png` (made by `tool/make_icon.py`).
 - Feature graphic 1024×500.
 - Phone screenshots (at least 2, ideally 4–8): dashboard, campaign editor with preview and counter, campaign
   progress, CSV import with column mapping, schedule screen, send settings.

@@ -197,8 +197,12 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
      */
     private fun openComposer(call: MethodCall, result: MethodChannel.Result) {
         val a = activity ?: run { result.success(false); return }
-        val phone = call.argument<String>("phone") ?: run { result.success(false); return }
-        val i = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone)))
+        // One number, or several ("send to all at once"). Samsung's Messages app separates
+        // recipients with commas; most others with semicolons.
+        val phones = call.argument<List<String>>("phones") ?: listOfNotNull(call.argument<String>("phone"))
+        if (phones.isEmpty()) { result.success(false); return }
+        val sep = if (android.os.Build.MANUFACTURER.equals("samsung", ignoreCase = true)) "," else ";"
+        val i = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + phones.joinToString(sep) { Uri.encode(it) }))
             .putExtra("sms_body", call.argument<String>("body") ?: "")
         try {
             a.startActivity(i); result.success(true)

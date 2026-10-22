@@ -23,6 +23,18 @@ class ManualSend {
   final int position, total;
 }
 
+/// A batch of recipients who get the same text, handed to the Messages app in one go.
+class ManualBatch {
+  const ManualBatch({required this.attemptIds, required this.names, required this.phones, required this.body,
+      required this.from, required this.total});
+  final List<int> attemptIds;
+  final List<String> names, phones;
+  final String body;
+  /// 1-based position of the batch's first recipient among the campaign's texts, for "21–40 of 95".
+  final int from, total;
+  int get to => from + phones.length - 1;
+}
+
 class SendBlockedException implements Exception {
   SendBlockedException(this.blocker, [this.message]);
   final DirectSendBlocker blocker;
@@ -290,6 +302,55 @@ class SendOrchestrator {
     await attempts.setSentBody(attemptId, body);
     return ManualSend(attemptId: attemptId, name: r.name, phone: r.phone, body: body,
         position: texts.length - left, total: texts.length);
+  }
+
+  /// Whether the pending texts are all the same (no per-person placeholders), so they can
+  /// go to several people in one message.
+  Future<bool> canBatch(int campaignId) async {
+    final texts = (await campaigns.recipients(campaignId))
+        .where((r) => !r.isEmail && r.status == RecipientStatus.pending).map((r) => r.renderedMessage).toSet();
+    return texts.length == 1;
+  }
+
+  /// Messages-app fallback, all at once: prepares up to [size] pending recipients that get
+  /// the same text, or null if none is left. Answer with [finishManualBatch].
+  Future<ManualBatch?> startManualBatch(int campaignId, {int size = 20}) async {
+    final campaign = await campaigns.get(campaignId);
+    if (campaign == null) throw StateError('Campaign not found.');
+    if (campaign.status == CampaignStatus.draft || campaign.status == CampaignStatus.cancelled ||
+        campaign.status == CampaignStatus.running) {
+      throw StateError('Campaign is ${campaign.status.name}; it can\'t be sent from the Messages app now.');
+    }
+    final texts = (await campaigns.recipients(campaignId)).where((r) => !r.isEmail).toList();
+    final pending = texts.where((r) => r.status == RecipientStatus.pending).toList();
+    if (pending.isEmpty) {
+      await attempts.finalizeCampaign(campaignId);
+      return null;
+    }
+    final text = pending.first.renderedMessage;
+    final batch = pending.where((r) => r.renderedMessage == text).take(size).toList();
+    await campaigns.setStatus(campaignId, CampaignStatus.awaitingUserAction);
+    final body = withSignature(text, await _signature());
+    final ids = <int>[];
+    for (final r in batch) {
+      final id = await attempts.beginAttempt(r.id, 'android_manual');
+      await attempts.applyResult(id, RecipientStatus.awaitingUserAction);
+      await attempts.setSentBody(id, body);
+      ids.add(id);
+    }
+    final from = texts.length - pending.length + 1;
+    return ManualBatch(attemptIds: ids, names: [for (final r in batch) r.name], phones: [for (final r in batch) r.phone],
+        body: body, from: from, total: texts.length);
+  }
+
+  /// The user's answer for a whole batch (see [finishManualSend]).
+  Future<void> finishManualBatch(List<int> attemptIds, {required bool sent, String? errorCode}) async {
+    int? cid;
+    for (final id in attemptIds) {
+      cid = await attempts.applyResult(id, sent ? RecipientStatus.sent : RecipientStatus.cancelled,
+          errorCode: errorCode ?? (sent ? 'user_confirmed' : null)) ?? cid;
+    }
+    if (cid != null) await attempts.finalizeCampaign(cid);
   }
 
   /// The user's answer: [sent] true -> `sent` (confirmed by the user, not the

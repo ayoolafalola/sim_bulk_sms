@@ -1,6 +1,6 @@
 # Notes for the Google Play reviewer (App access › instructions)
 
-No login or account is needed. Comeriver Messages is a messaging app (default SMS handler) that also sends
+No login or account is needed. Messages++ is a messaging app (default SMS handler) that also sends
 personalised messages to groups.
 
 1. Open the app and follow setup: make it the **default messaging app** (Android asks), then allow

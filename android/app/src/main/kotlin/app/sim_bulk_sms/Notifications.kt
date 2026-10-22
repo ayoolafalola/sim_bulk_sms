@@ -11,6 +11,9 @@ import androidx.core.app.NotificationManagerCompat
 
 /** Ongoing "sending" notification for the foreground service, and result notifications. */
 object Notifications {
+    /** Messages++ green: tints the status-bar icon on the notification. */
+    private val BRAND = 0xFF1B6B5A.toInt()
+
     private const val CH_SENDING = "sending"
     private const val CH_RESULTS = "results"
     private const val CH_MESSAGES = "messages"
@@ -36,7 +39,8 @@ object Notifications {
 
     fun ongoing(ctx: Context, title: String, text: String?, done: Int, total: Int): Notification =
         NotificationCompat.Builder(ctx, CH_SENDING)
-            .setSmallIcon(android.R.drawable.stat_sys_upload)
+            .setSmallIcon(R.drawable.ic_stat_messages)
+            .setColor(BRAND)
             .setContentTitle(title)
             .setContentText(text)
             .setOngoing(true)
@@ -53,7 +57,8 @@ object Notifications {
         ensureChannels(ctx) // may be called from a receiver before the service ever ran
         post(ctx, nextResultId++,
         NotificationCompat.Builder(ctx, CH_RESULTS)
-            .setSmallIcon(android.R.drawable.stat_notify_chat)
+            .setSmallIcon(R.drawable.ic_stat_messages)
+            .setColor(BRAND)
             .setContentTitle(title)
             .setContentText(text)
             .setStyle(NotificationCompat.BigTextStyle().bigText(text))
@@ -88,7 +93,8 @@ object Notifications {
         val me = androidx.core.app.Person.Builder().setName("You").build()
         val them = androidx.core.app.Person.Builder().setName(sender).build()
         post(ctx, messageId(threadId), NotificationCompat.Builder(ctx, CH_MESSAGES)
-            .setSmallIcon(android.R.drawable.stat_notify_chat)
+            .setSmallIcon(R.drawable.ic_stat_messages)
+            .setColor(BRAND)
             .setStyle(NotificationCompat.MessagingStyle(me).addMessage(body, System.currentTimeMillis(), them))
             .setContentTitle(sender)
             .setContentText(body)

@@ -153,9 +153,15 @@ class ProgressLine extends StatelessWidget {
       Tone.danger => Theme.of(context).colorScheme.error,
       _ => Theme.of(context).colorScheme.primary,
     };
+    // Glides to each new value instead of jumping.
     return ClipRRect(
       borderRadius: BorderRadius.circular(4),
-      child: LinearProgressIndicator(value: value.clamp(0, 1), minHeight: 8, backgroundColor: c.neutralBg, color: fg),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(end: value.clamp(0, 1).toDouble()),
+        duration: const Duration(milliseconds: 600),
+        curve: Curves.easeOut,
+        builder: (_, v, __) => LinearProgressIndicator(value: v, minHeight: 8, backgroundColor: c.neutralBg, color: fg),
+      ),
     );
   }
 }
