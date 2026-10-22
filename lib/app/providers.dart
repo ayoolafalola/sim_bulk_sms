@@ -3,10 +3,13 @@ import 'package:sqflite/sqflite.dart' show Database;
 import '../data/repositories/campaign_repository.dart';
 import '../data/repositories/contact_repository.dart';
 import '../data/repositories/group_repository.dart';
+import '../data/repositories/schedule_repository.dart';
 import '../domain/models/campaign.dart';
 import '../domain/models/contact.dart';
+import '../domain/models/schedule.dart';
 import '../domain/models/statuses.dart';
 import '../features/campaigns/campaign_composer.dart';
+import '../features/scheduling/schedule_runner.dart';
 import '../platform/contacts/phone_contacts_service.dart';
 
 /// Overridden in main() with the opened database (and in tests).
@@ -76,3 +79,26 @@ final campaignRecipientsProvider = FutureProvider.family<List<CampaignRecipient>
 });
 
 final phoneContactsServiceProvider = Provider<PhoneContactsService>((ref) => NativePhoneContactsService());
+
+final scheduleRepositoryProvider = Provider((ref) => ScheduleRepository(ref.watch(databaseProvider)));
+
+final schedulesProvider = FutureProvider<List<ScheduleListItem>>((ref) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(scheduleRepositoryProvider).list();
+});
+
+final campaignScheduleProvider = FutureProvider.family<CampaignSchedule?, int>((ref, campaignId) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(scheduleRepositoryProvider).forCampaign(campaignId);
+});
+
+final campaignAudienceProvider = FutureProvider.family<CampaignAudience, int>((ref, campaignId) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(campaignRepositoryProvider).audience(campaignId);
+});
+
+final scheduleRunnerProvider = Provider((ref) => ScheduleRunner(
+      schedules: ref.watch(scheduleRepositoryProvider),
+      campaigns: ref.watch(campaignRepositoryProvider),
+      composer: ref.watch(composerProvider),
+    ));

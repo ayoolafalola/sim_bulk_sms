@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../../domain/models/campaign.dart';
 import '../../domain/models/statuses.dart';
@@ -31,15 +32,58 @@ class CampaignRepository {
       id: r['id'] as int, name: r['name'] as String, messageTemplate: r['message_template'] as String,
       status: campaignStatusFromDb(r['status'] as String), platform: r['platform'] as String,
       subscriptionId: r['subscription_id'] as int?, recipientCount: r['recipient_count'] as int,
-      createdAt: DateTime.parse(r['created_at'] as String));
+      createdAt: DateTime.parse(r['created_at'] as String),
+      sourceCampaignId: r['source_campaign_id'] as int?, scheduleId: r['schedule_id'] as int?);
 
-  Future<int> createDraft({required String name, required String template, required String platform}) {
+  Future<int> createDraft({
+    required String name, required String template, required String platform,
+    int? sourceCampaignId, int? scheduleId, Map<String, String> fallbacks = const {},
+  }) {
     final now = _now();
     return _db.insert('campaigns', {
       'name': name.trim(), 'message_template': template, 'status': 'draft', 'platform': platform,
       'recipient_count': 0, 'created_at': now, 'updated_at': now,
+      'source_campaign_id': sourceCampaignId, 'schedule_id': scheduleId,
+      'fallbacks_json': fallbacks.isEmpty ? null : jsonEncode(fallbacks),
     });
   }
+
+  /// Replaces who the campaign targets. Stored so it can be edited, resent to
+  /// current group members, and run on a schedule.
+  Future<void> saveAudience(int campaignId, CampaignAudience a) => _db.transaction((txn) async {
+        await txn.delete('campaign_audience', where: 'campaign_id = ?', whereArgs: [campaignId]);
+        final b = txn.batch();
+        for (final g in a.groupIds) {
+          b.insert('campaign_audience', {'campaign_id': campaignId, 'group_id': g});
+        }
+        for (final c in a.contactIds) {
+          b.insert('campaign_audience', {'campaign_id': campaignId, 'contact_id': c});
+        }
+        await b.commit(noResult: true);
+      });
+
+  Future<CampaignAudience> audience(int campaignId) async {
+    final rows = await _db.query('campaign_audience', where: 'campaign_id = ?', whereArgs: [campaignId]);
+    return CampaignAudience(
+      groupIds: {for (final r in rows) if (r['group_id'] != null) r['group_id'] as int},
+      contactIds: {for (final r in rows) if (r['contact_id'] != null) r['contact_id'] as int},
+    );
+  }
+
+  Future<void> saveFallbacks(int campaignId, Map<String, String> fallbacks) => _db.update('campaigns',
+      {'fallbacks_json': fallbacks.isEmpty ? null : jsonEncode(fallbacks), 'updated_at': _now()},
+      where: 'id = ?', whereArgs: [campaignId]);
+
+  Future<Map<String, String>> fallbacks(int campaignId) async {
+    final rows = await _db.query('campaigns', columns: ['fallbacks_json'], where: 'id = ?', whereArgs: [campaignId]);
+    final j = rows.isEmpty ? null : rows.first['fallbacks_json'] as String?;
+    return j == null ? {} : Map<String, String>.from(jsonDecode(j) as Map);
+  }
+
+  /// True while any campaign is sending or waiting on the user, so a scheduled
+  /// run never overlaps another send.
+  Future<bool> anySending() async => (Sqflite.firstIntValue(await _db.rawQuery(
+          "SELECT COUNT(*) FROM campaigns WHERE status IN ('running','awaiting_user_action')")) ?? 0) > 0;
 
   /// Editing the template invalidates rendered messages, so the campaign goes
   /// back to `draft` and must be re-snapshotted before it can be confirmed.
@@ -84,6 +128,11 @@ class CampaignRepository {
 
   Future<void> setStatus(int id, CampaignStatus s) => _db.update('campaigns',
       {'status': _campaignToDb[s], 'updated_at': _now()}, where: 'id = ?', whereArgs: [id]);
+
+  /// Asks a running send to stop after its current message (the sender checks
+  /// the status before each one). No effect unless the campaign is running.
+  Future<void> requestPause(int id) => _db.update('campaigns',
+      {'status': 'paused', 'updated_at': _now()}, where: "id = ? AND status = 'running'", whereArgs: [id]);
 
   Future<void> delete(int id) => _db.delete('campaigns', where: 'id = ?', whereArgs: [id]);
 

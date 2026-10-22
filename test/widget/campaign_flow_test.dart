@@ -32,10 +32,13 @@ void main() {
     addTearDown(() => t.runAsync(db.close));
 
     // Real DB I/O happens outside the fake clock: let it finish, then rebuild.
-    Future<void> settle() async {
-      for (var i = 0; i < 5; i++) {
+    // With [until], keep going (bounded) until that widget shows up, so a slow
+    // machine doesn't make the test flaky.
+    Future<void> settle({Finder? until}) async {
+      for (var i = 0; i < 40; i++) {
         await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
         await t.pump(const Duration(milliseconds: 300));
+        if (i >= 4 && (until == null || until.evaluate().isNotEmpty)) return;
       }
     }
 
@@ -53,14 +56,14 @@ void main() {
     await t.enterText(find.widgetWithText(TextField, 'Campaign name'), 'Launch');
     await t.enterText(find.widgetWithText(TextField, 'Message'), 'Hi {first_name}, see you Saturday');
     await t.tap(find.text('Volunteers (2)'));
-    await settle();
+    await settle(until: find.text('2 recipients'));
 
     expect(find.text('2 recipients'), findsOneWidget);
     expect(find.text('Hi Ada, see you Saturday'), findsOneWidget);
     expect(find.textContaining('have not confirmed consent'), findsOneWidget);
 
     await t.tap(find.text('Save and review'));
-    await settle();
+    await settle(until: find.text('Waiting: 2'));
 
     expect(find.text('Ready to send'), findsOneWidget);
     expect(find.text('Waiting: 2'), findsOneWidget);

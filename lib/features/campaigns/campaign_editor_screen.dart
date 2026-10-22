@@ -11,8 +11,8 @@ import '../../domain/services/campaign_planner.dart';
 import '../../platform/sms/sms_capability_service.dart';
 import '../groups/group_detail_screen.dart';
 
-/// Create a campaign, or rewrite a draft/ready one. Recipients are re-selected
-/// each time: only the saved snapshot is persisted, not the selection.
+/// Create a campaign, or rewrite a draft/ready one. The selection (groups and
+/// contacts) and fallbacks are saved with it and restored when editing.
 class CampaignEditorScreen extends ConsumerStatefulWidget {
   const CampaignEditorScreen({super.key, this.campaignId});
   final int? campaignId;
@@ -60,9 +60,15 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
       } else {
         _name.text = c.name;
         _template.text = c.messageTemplate;
+        final repo = ref.read(campaignRepositoryProvider);
+        final a = await repo.audience(id);
+        _groupIds.addAll(a.groupIds);
+        _contactIds.addAll(a.contactIds);
+        _fallbacks.addAll(await repo.fallbacks(id));
       }
     }
     if (mounted) setState(() => _loading = false);
+    _replan();
   }
 
   void _replan() {
@@ -105,7 +111,9 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
     try {
       final id = await ref.read(composerProvider).save(
           campaignId: widget.campaignId, name: _name.text, template: _template.text,
-          platform: _platform(), plan: plan);
+          platform: _platform(), plan: plan,
+          audience: CampaignAudience(groupIds: {..._groupIds}, contactIds: {..._contactIds}),
+          fallbacks: {for (final e in _fallbacks.entries) if (e.value.trim().isNotEmpty) e.key: e.value});
       ref.read(dataVersionProvider.notifier).state++;
       if (mounted) context.go('/campaigns/$id');
     } catch (e) {

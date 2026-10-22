@@ -5,6 +5,7 @@ import '../../app/capability_providers.dart';
 import '../../app/providers.dart';
 import '../../app/sending_providers.dart';
 import '../../platform/sms/sms_capability_service.dart';
+import '../../domain/services/schedule_calculator.dart';
 import '../campaigns/campaign_labels.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -15,7 +16,12 @@ class DashboardScreen extends ConsumerWidget {
     final stats = ref.watch(dashboardStatsProvider);
     final caps = ref.watch(capabilitiesProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('SIM Bulk SMS')),
+      appBar: AppBar(title: const Text('SIM Bulk SMS'), actions: [
+        IconButton(
+            tooltip: 'Background sending',
+            icon: const Icon(Icons.settings_outlined),
+            onPressed: () => context.go('/settings/background')),
+      ]),
       body: ListView(padding: const EdgeInsets.all(16), children: [
         caps.when(
           data: (c) => _CapabilityCard(c),
@@ -49,6 +55,7 @@ class DashboardScreen extends ConsumerWidget {
                 ),
           ]),
         ),
+        const _ScheduledList(),
         const SizedBox(height: 16),
         FilledButton.icon(
             onPressed: () => context.go('/campaigns/new'),
@@ -133,6 +140,46 @@ class _CapabilityCard extends ConsumerWidget {
         icon: const Icon(Icons.lock_open),
         label: const Text('Allow SMS permission'),
       ),
+    ]);
+  }
+}
+
+/// Upcoming and paused schedules. Hidden when there are none.
+class _ScheduledList extends ConsumerWidget {
+  const _ScheduledList();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final items = ref.watch(schedulesProvider).valueOrNull ?? const [];
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      const SizedBox(height: 16),
+      Text('Scheduled', style: Theme.of(context).textTheme.titleMedium),
+      if (ref.watch(backgroundStatusProvider).valueOrNull case final st? when !st.ready)
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.warning_amber),
+            title: const Text('Background sending is not fully set up'),
+            subtitle: Text(st.exactAlarms
+                ? 'The phone may delay or block scheduled runs.'
+                : 'Scheduled runs only start while the app is open.'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/settings/background'),
+          ),
+        ),
+      for (final i in items)
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(i.schedule.enabled ? Icons.event_repeat : Icons.pause_circle_outline),
+          title: Text(i.campaignName),
+          subtitle: Text([
+            describeSchedule(specOf(i.schedule)),
+            if (!i.schedule.enabled) i.schedule.nextRunAt == null ? 'Finished' : 'Paused'
+            else if (i.schedule.nextRunAt != null) 'Next: ${formatDateTime(i.schedule.nextRunAt!)}',
+            if (i.schedule.lastOutcome != null) 'Last: ${scheduleOutcomeLabel(i.schedule.lastOutcome!)}',
+          ].join('\n')),
+          isThreeLine: i.schedule.lastOutcome != null,
+          onTap: () => context.go('/campaigns/${i.schedule.campaignId}'),
+        ),
     ]);
   }
 }

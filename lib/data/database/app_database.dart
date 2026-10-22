@@ -1,7 +1,8 @@
 import 'package:sqflite/sqflite.dart';
 import 'schema_v1.dart';
+import 'schema_v2.dart';
 
-const currentSchemaVersion = 1;
+const currentSchemaVersion = 2;
 
 /// Opens the app database with foreign keys enforced. Pass a [DatabaseFactory]
 /// so tests can use an in-memory sqflite_common_ffi database.
@@ -10,13 +11,23 @@ Future<Database> openAppDatabase(DatabaseFactory factory, String path) {
     path,
     options: OpenDatabaseOptions(
       version: currentSchemaVersion,
-      onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
+      onConfigure: (db) async {
+        await db.execute('PRAGMA foreign_keys = ON');
+        // The app screen and the background send service each hold a connection:
+        // wait for a lock instead of failing with "database is locked".
+        await db.rawQuery('PRAGMA busy_timeout = 5000');
+      },
       onCreate: (db, v) async {
         final batch = db.batch();
-        for (final s in schemaV1) { batch.execute(s); }
+        for (final s in [...schemaV1, ...schemaV2]) { batch.execute(s); }
         await batch.commit(noResult: true);
       },
-      // Future migrations: onUpgrade: (db, from, to) { if (from < 2) {...} }
+      // Each step runs in sqflite's upgrade transaction: all or nothing.
+      onUpgrade: (db, from, to) async {
+        if (from < 2) {
+          for (final s in schemaV2) { await db.execute(s); }
+        }
+      },
     ),
   );
 }

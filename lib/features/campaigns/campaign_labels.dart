@@ -1,3 +1,4 @@
+import '../../domain/models/schedule.dart';
 import '../../domain/models/statuses.dart';
 
 /// User-facing wording. `sent` means handed to the carrier (or to Messages on
@@ -24,4 +25,13 @@ String campaignStatusLabel(CampaignStatus s) => switch (s) {
       CampaignStatus.partiallyCompleted => 'Partly completed',
       CampaignStatus.failed => 'Failed',
       CampaignStatus.cancelled => 'Cancelled',
+    };
+
+String scheduleOutcomeLabel(ScheduleOutcome o) => switch (o) {
+      ScheduleOutcome.started => 'Sent automatically',
+      ScheduleOutcome.needsAttention => 'Prepared, needs you to send',
+      ScheduleOutcome.missed => 'Skipped: more than 2 hours late',
+      ScheduleOutcome.blocked => 'Not sent: missing values in the message',
+      ScheduleOutcome.noRecipients => 'Not sent: no one to send to',
+      ScheduleOutcome.notReady => 'Not sent: campaign was no longer ready',
     };

@@ -8,6 +8,10 @@ import 'app/providers.dart';
 import 'app/startup_error_app.dart';
 import 'data/database/app_database.dart';
 import 'data/repositories/attempt_repository.dart';
+import 'platform/background/background_send_service.dart';
+
+// Keeps the background service's Dart entry point compiled into the app.
+export 'background/background_main.dart' show backgroundMain;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -23,7 +27,8 @@ Future<void> main() async {
     final db = await openAppDatabase(databaseFactory, p.join(await getDatabasesPath(), 'sim_bulk_sms.db'));
     // Anything that was in flight when the app last died has an uncertain
     // outcome: mark it `unknown` and pause the campaign. Never auto-resend.
-    await AttemptRepository(db).recoverInterrupted();
+    // Skipped while the Android send service is running: it owns those sends.
+    if (!await _sendServiceRunning()) await AttemptRepository(db).recoverInterrupted();
     runApp(ProviderScope(
       overrides: [databaseProvider.overrideWithValue(db)],
       child: const SimBulkSmsApp(),
@@ -31,5 +36,14 @@ Future<void> main() async {
   } catch (e, st) {
     debugPrint('Startup failed: $e\n$st');
     runApp(StartupErrorApp(title: 'The app could not start', detail: '$e'));
+  }
+}
+
+Future<bool> _sendServiceRunning() async {
+  if (defaultTargetPlatform != TargetPlatform.android) return false;
+  try {
+    return (await NativeBackgroundSendService().status()).serviceRunning;
+  } catch (_) {
+    return false;
   }
 }

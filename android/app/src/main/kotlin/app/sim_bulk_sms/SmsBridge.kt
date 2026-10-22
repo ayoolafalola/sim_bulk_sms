@@ -20,13 +20,16 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Direct SIM sending via SmsManager. Never reports success before a platform callback.
- * Not compiled/tested in the authoring environment: must be verified on real hardware.
  * Phone numbers and bodies are never logged.
+ *
+ * Used by the app screen (with [activity], so it can ask for permissions) and by
+ * [SendService]'s background engine (no activity: permission requests are refused).
+ * Each instance only reports callbacks for the attempts it sent.
  */
-class SmsBridge(private val activity: Activity) :
+class SmsBridge(context: Context, private val activity: Activity? = null) :
     MethodChannel.MethodCallHandler, EventChannel.StreamHandler {
 
-    private val ctx: Context get() = activity.applicationContext
+    private val ctx: Context = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
     private var sink: EventChannel.EventSink? = null
     private var pendingPermissionResult: MethodChannel.Result? = null
@@ -92,8 +95,9 @@ class SmsBridge(private val activity: Activity) :
     private fun requestPermissions(result: MethodChannel.Result) {
         val needed = listOf(Manifest.permission.SEND_SMS, Manifest.permission.READ_PHONE_STATE).filter { !has(it) }
         if (needed.isEmpty()) { result.success(true); return }
+        val a = activity ?: run { result.success(false); return } // background: can't prompt
         pendingPermissionResult = result
-        ActivityCompat.requestPermissions(activity, needed.toTypedArray(), 7421)
+        ActivityCompat.requestPermissions(a, needed.toTypedArray(), 7421)
     }
 
     /** Call from MainActivity.onRequestPermissionsResult. */

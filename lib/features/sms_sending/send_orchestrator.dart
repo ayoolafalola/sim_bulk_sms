@@ -75,10 +75,20 @@ class SendOrchestrator {
     var halted = false;
     try {
       await attempts.markRunning(campaignId);
+      var stoppedElsewhere = false;
       while (!_stop) {
+        // Pause/cancel may come from another engine (the app screen while the
+        // background service sends): the database status is the signal.
+        final now = await campaigns.get(campaignId);
+        if (now == null || now.status != CampaignStatus.running) { stoppedElsewhere = true; break; }
         final r = await attempts.nextPending(campaignId);
         if (r == null) break;
-        final attemptId = await attempts.beginAttempt(r.id, 'android');
+        final int attemptId;
+        try {
+          attemptId = await attempts.beginAttempt(r.id, 'android');
+        } on AttemptRefusedException {
+          continue; // e.g. cancelled between nextPending and here: never send it
+        }
         // Persist "submitted" BEFORE invoking native code: a crash now yields `unknown`, not a duplicate.
         await attempts.applyResult(attemptId, RecipientStatus.submitted);
         final res = await sms.sendMessage(SmsSendRequest(
@@ -94,7 +104,9 @@ class SendOrchestrator {
         }
         if (!_stop) await _sleep(interval);
       }
-      if (_stop || halted) {
+      if (stoppedElsewhere) {
+        // Paused or cancelled by the user: leave the status they chose.
+      } else if (_stop || halted) {
         final cur = await campaigns.get(campaignId);
         if (cur?.status == CampaignStatus.running) await campaigns.setStatus(campaignId, CampaignStatus.paused);
       } else {

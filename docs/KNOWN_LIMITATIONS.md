@@ -4,9 +4,11 @@
 - Delivery reports depend on the carrier; absence does not mean failure.
 - SIM subscription ids are device-local; phone numbers of SIMs are not read.
 - Segment counts are estimates, not carrier billing.
-- Kotlin and Swift bridges have never been compiled or run on a device.
+- The iOS Swift bridges have never been compiled or run on a device. The Android SMS bridge has been run on one Samsung phone.
 - Android composer fallback (system messaging handoff when direct sending is disabled) is not implemented yet.
 - If the process dies while Android callbacks are pending, those messages become `unknown` even if the carrier sent them.
-- The send flow UI is covered by widget tests only; it has not been run on a real Android or iOS device.
-- A campaign does not remember which groups/contacts were picked: editing a draft means choosing recipients again.
-- Android sending runs in the foreground app process; leaving the app during a long run can stop it (no foreground service yet).
+- Campaigns created before schema v2 have no saved audience: edit them and pick recipients again before scheduling or resending to current members.
+- Android background sending needs Alarms & reminders permission; without it, scheduled runs only start while the app is open. Samsung and other vendors may still delay or block wake-ups unless battery use is Unrestricted / the app is a "Never sleeping app".
+- The background service waits 2 minutes after the last message for delivery reports; reports arriving later are not recorded (the message stays `sent`). Messages still `submitted` when it stops become `unknown` the next time sending starts.
+- Google Play: the special-use foreground service and exact alarms need Play Console declarations before a Play release.
+- On iOS a scheduled run is only prepared; you must open it and tap Send for each message.
