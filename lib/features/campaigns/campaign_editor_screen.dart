@@ -7,6 +7,7 @@ import '../../app/capability_providers.dart';
 import '../../app/providers.dart';
 import '../../data/repositories/campaign_repository.dart';
 import '../../domain/models/campaign.dart';
+import '../../domain/models/channels.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/campaign_planner.dart';
 import '../../platform/sms/sms_capability_service.dart';
@@ -30,11 +31,13 @@ class CampaignEditorScreen extends ConsumerStatefulWidget {
 }
 
 class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
-  static const variables = ['first_name', 'name', 'last_name', 'phone', 'email'];
+  static const variables = ['first_name', 'name', 'last_name', 'phone', 'email', 'company', 'birthday'];
   static const untitled = 'Untitled draft';
 
   final _name = TextEditingController();
   final _template = TextEditingController();
+  final _subject = TextEditingController();
+  SendChannel _channel = SendChannel.sms;
   final _groupIds = <int>{};
   final _contactIds = <int>{};
   final _fallbacks = <String, String>{};
@@ -73,6 +76,7 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
     if (_autosave && _pending) _flush();
     _name.dispose();
     _template.dispose();
+    _subject.dispose();
     super.dispose();
   }
 
@@ -89,6 +93,8 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
         _autosave = c.status == CampaignStatus.draft;
         _name.text = c.name == untitled ? '' : c.name;
         _template.text = c.messageTemplate;
+        _channel = c.channel;
+        _subject.text = c.subject ?? '';
         final a = await _repo.audience(id);
         _groupIds.addAll(a.groupIds);
         _contactIds.addAll(a.contactIds);
@@ -111,6 +117,8 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
     }
   }
 
+  String? get _subjectOrNull => _channel.usesEmail && _subject.text.trim().isNotEmpty ? _subject.text.trim() : null;
+
   Map<String, String> get _cleanFallbacks =>
       {for (final e in _fallbacks.entries) if (e.value.trim().isNotEmpty) e.key: e.value};
 
@@ -126,9 +134,11 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
         try {
           if (_draftId == null) {
             _draftId = await _repo.createDraft(
-                name: name, template: _template.text, platform: _platformName, fallbacks: _cleanFallbacks);
+                name: name, template: _template.text, platform: _platformName, fallbacks: _cleanFallbacks,
+                channel: _channel, subject: _subjectOrNull);
           } else {
-            await _repo.updateDraft(_draftId!, name: name, template: _template.text);
+            await _repo.updateDraft(_draftId!,
+                name: name, template: _template.text, channel: _channel, subject: _subjectOrNull);
             await _repo.saveFallbacks(_draftId!, _cleanFallbacks);
           }
           await _repo.saveAudience(_draftId!, CampaignAudience(groupIds: {..._groupIds}, contactIds: {..._contactIds}));
@@ -147,7 +157,8 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
       final plan = (_template.text.trim().isEmpty || !hasSelection)
           ? null
           : await ref.read(composerProvider).plan(
-              template: _template.text, groupIds: _groupIds, contactIds: _contactIds, fallbacks: _cleanFallbacks);
+              template: _template.text, groupIds: _groupIds, contactIds: _contactIds, fallbacks: _cleanFallbacks,
+              channel: _channel, subject: _subject.text.trim());
       if (mounted && seq == _planSeq) setState(() => _plan = plan);
     });
   }
@@ -173,7 +184,7 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
 
   Future<void> _save() async {
     final plan = _plan;
-    if (plan == null || !plan.canSave || _name.text.trim().isEmpty) return;
+    if (plan == null || !plan.canSave || _name.text.trim().isEmpty || _needsSubject) return;
     setState(() => _saving = true);
     _autosaveTimer?.cancel();
     await _flushing;
@@ -182,7 +193,7 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
           campaignId: _draftId ?? widget.campaignId, name: _name.text, template: _template.text,
           platform: _platformName, plan: plan,
           audience: CampaignAudience(groupIds: {..._groupIds}, contactIds: {..._contactIds}),
-          fallbacks: _cleanFallbacks);
+          fallbacks: _cleanFallbacks, channel: _channel, subject: _subjectOrNull);
       // It is ready now: stop autosaving so leaving can't turn it back into a draft.
       _autosave = false;
       _pending = false;
@@ -196,6 +207,8 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
       }
     }
   }
+
+  bool get _needsSubject => _channel.usesEmail && (_plan?.emailCount ?? 0) > 0 && _subject.text.trim().isEmpty;
 
   Future<void> _confirmDiscard() async {
     final discard = await showDialog<bool>(
@@ -223,7 +236,8 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
     }
     final groups = ref.watch(groupsProvider).valueOrNull ?? const [];
     final plan = _plan;
-    final canSave = !_saving && plan != null && plan.canSave && _name.text.trim().isNotEmpty;
+    final canSave = !_saving && plan != null && plan.canSave && _name.text.trim().isNotEmpty && !_needsSubject;
+    final email = ref.watch(emailSettingsProvider).valueOrNull;
     final fallbackKeys = {...?plan?.unresolvedVariables, ..._fallbacks.keys}.toList()..sort();
     final messenger = ScaffoldMessenger.of(context);
 
@@ -259,6 +273,47 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
                 _changed();
               },
             ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<SendChannel>(
+              initialValue: _channel,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Send by'),
+              items: const [
+                DropdownMenuItem(value: SendChannel.sms, child: Text('Text (SMS)')),
+                DropdownMenuItem(value: SendChannel.email, child: Text('Email')),
+                DropdownMenuItem(value: SendChannel.both, child: Text('Text and email')),
+                DropdownMenuItem(value: SendChannel.smsElseEmail, child: Text('Text, or email if no number')),
+              ],
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() => _channel = v);
+                _changed();
+              },
+            ),
+            if (_channel.usesEmail && email != null && !email.ready)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => context.push('/settings/email'),
+                  icon: const Icon(Icons.warning_amber_rounded),
+                  label: const Text('Email isn\'t set up yet: set it up in Settings › Email'),
+                ),
+              ),
+            if (_channel.usesEmail) ...[
+              const SizedBox(height: 16),
+              TextField(
+                controller: _subject,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: InputDecoration(
+                    labelText: 'Email subject',
+                    errorText: _needsSubject ? 'Emails need a subject' : null,
+                    helperText: 'Placeholders like {first_name} work here too.'),
+                onChanged: (_) {
+                  setState(() {});
+                  _changed();
+                },
+              ),
+            ],
             const SizedBox(height: 16),
             TextField(
               controller: _template,
@@ -340,7 +395,7 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
                 ),
             ],
             const SizedBox(height: 24),
-            if (plan != null) PlanSummary(plan),
+            if (plan != null) PlanSummary(plan, channel: _channel),
           ],
         ),
       ),
@@ -350,8 +405,9 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
 
 /// What will actually be sent, derived from the plan. Shown before saving.
 class PlanSummary extends StatelessWidget {
-  const PlanSummary(this.plan, {super.key});
+  const PlanSummary(this.plan, {super.key, this.channel = SendChannel.sms});
   final SnapshotPlan plan;
+  final SendChannel channel;
 
   @override
   Widget build(BuildContext context) {
@@ -364,7 +420,13 @@ class PlanSummary extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('${plan.recipients.length} ${plan.recipients.length == 1 ? 'recipient' : 'recipients'}',
+          Text(
+              plan.emailCount == 0
+                  ? '${plan.recipients.length} ${plan.recipients.length == 1 ? 'recipient' : 'recipients'}'
+                  : [
+                      if (plan.smsCount > 0) '${plan.smsCount} ${plan.smsCount == 1 ? 'text' : 'texts'}',
+                      '${plan.emailCount} ${plan.emailCount == 1 ? 'email' : 'emails'}',
+                    ].join(' · '),
               style: Theme.of(context).textTheme.titleLarge),
           if (est.messages > 0)
             line('About ${est.totalSegments} SMS ${est.totalSegments == 1 ? 'segment' : 'segments'} in total '
@@ -373,7 +435,12 @@ class PlanSummary extends StatelessWidget {
             line('${est.unicodeMessages} messages contain special characters, which shortens each segment.'),
           if (e.excludedSuppressed.isNotEmpty) line('${e.excludedSuppressed.length} excluded: on the suppression list.'),
           if (e.excludedOptedOut.isNotEmpty) line('${e.excludedOptedOut.length} excluded: opted out.'),
-          if (e.excludedInvalid.isNotEmpty) line('${e.excludedInvalid.length} excluded: invalid phone number.'),
+          if (e.excludedInvalid.isNotEmpty)
+            line('${e.excludedInvalid.length} excluded: ${switch (channel) {
+              SendChannel.sms => 'invalid phone number',
+              SendChannel.email => 'no valid email address',
+              _ => 'no valid number or email',
+            }}.'),
           if (plan.unknownConsentCount > 0)
             line('${plan.unknownConsentCount} recipients have not confirmed consent.', color: scheme.tertiary),
           if (plan.blocked.isNotEmpty)
@@ -392,6 +459,22 @@ class PlanSummary extends StatelessWidget {
                   color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)),
               child: Text(plan.recipients.first.renderedMessage),
             ),
+            if (plan.recipients.where((r) => r.channel == MessageChannel.email).firstOrNull case final m?) ...[
+              const SizedBox(height: 12),
+              Text('Email to ${m.email}', style: Theme.of(context).textTheme.labelLarge),
+              const SizedBox(height: 4),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(m.subject ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 6),
+                  Text(m.renderedMessage),
+                ]),
+              ),
+            ],
           ],
         ]),
       ),

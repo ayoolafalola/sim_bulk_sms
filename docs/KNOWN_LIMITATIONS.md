@@ -16,4 +16,11 @@
 - Send limits don't apply on iPhone, where every message is sent by hand.
 - Messages-app fallback: Android doesn't report whether you tapped Send in the Messages app, so those messages are recorded as sent on your confirmation. They aren't counted towards the send limits and get no delivery reports.
 - "Refused for good" detection relies on Android's rationale flag after the app has asked at least once; some phones (and permissions turned off from system settings) may show the normal Allow button first, which then does nothing — use App setup › Open app settings.
-- Part B1: picture and group messages (MMS) are not downloaded yet. While this is the default messaging app, an incoming MMS only shows a notice; switch back to the previous messaging app to read it. Do not publish before Part C.
+- Picture and group messages (MMS) are not downloaded (Part C, deferred). While this is the default messaging app, an incoming MMS only shows a notice; switch back to the previous messaging app to read it. Play may ask for MMS support during review (docs/play/permission_declarations.md).
+- Contacts sync is read-only: edits to phone contacts are made in the phone's Contacts app. On iOS every sync reads all contacts (no "changed since"), notes are not read, and changes are only picked up when the app opens or returns to the foreground.
+- If several phone contacts share a number, an incoming text is matched to one of them.
+- Email: no delivery or open tracking; "Sent" means the email service accepted it. Replies (e.g. "STOP") arrive in your From mailbox, not in the app; mark those people opted out yourself.
+- Email: the API key is stored in the app's private storage (not the encrypted keystore).
+- Gmail needs a Google Cloud project and client ids in the build (docs/GMAIL_SETUP.md); until Google verifies the app, only up to 100 test users can connect. In the background Google may require signing in again: the run then waits for you.
+- Email limits pause a campaign until they allow more; on iPhone, a limit-paused email run resumes when you open the campaign and tap Send.
+- Mixed text+email campaigns: an SMS limit or email limit pauses the whole campaign until it resumes.

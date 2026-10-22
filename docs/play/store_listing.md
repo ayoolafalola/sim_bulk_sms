@@ -2,21 +2,31 @@
 
 - **App name** (max 30): Comeriver Messages
 - **Category:** Communication · **Tags:** messaging, SMS · **Contains ads:** No · **In-app purchases:** No
-- **Contact email:** _[your support email]_ · **Website:** _[optional]_ · **Privacy policy:** _[GitHub Pages URL, see docs/privacy]_
+- **Developer:** Comeriver Limited · **Contact email:** messages@comeriver.com · **Website:** https://messages.comeriver.com
+- **Privacy policy:** https://messages.comeriver.com/privacy · **Terms:** https://messages.comeriver.com/terms
 
 ## Short description (max 80)
 
-Send personalised SMS to your groups through your own SIM, now or on a schedule.
+Your texts, plus personalised messages to your groups by SMS or email.
 
 ## Full description
 
-Comeriver Messages sends text messages to the people in your contact groups using your own phone and SIM, so
-messages come from your number and are billed by your carrier as normal SMS. There is no account, no server and
-no per-message fee from us.
+Comeriver Messages is your messaging app, with a superpower: send personalised messages to whole groups of your
+contacts, by text from your own SIM or by email, now or on a schedule. Texts come from your number and are billed
+by your carrier as normal SMS. There is no account, no server and no per-message fee from us.
+
+**Your messages**
+• All your conversations, with notifications you can reply to and mark as read.
+• Start new messages, reply to declined calls with a text, and see which texts came from a campaign.
+
+**Your contacts, already here**
+• Use your phone's contacts directly: numbers, emails, birthdays and companies, always in sync.
+• Long-press to pick people and add them to groups.
 
 **Reach your people**
-• Import contacts from your phone or from a CSV/Excel export, pick the columns, and add everyone to a group.
-• Write once, personalise with {first_name} and other placeholders, and preview the exact message each person gets.
+• Send by text, email, or both; emails go through your Mailgun-compatible service or your Gmail.
+• Import more contacts from a CSV/Excel export, pick the columns, and add everyone to a group.
+• Write once, personalise with {first_name}, {company} and other placeholders, and preview the exact message each person gets.
 • See how many characters and SMS parts each message uses, with a one-tap fix for characters that make SMS shorter.
 
 **Send safely**

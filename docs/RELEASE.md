@@ -7,7 +7,7 @@ Bump the build number (`+2`, `+3`…) for every upload; Google Play refuses a re
 
 | Build | Command | Sending | Use |
 |---|---|---|---|
-| **Direct (full)** | `flutter build appbundle` | Automatically through the SIM, background service, schedules send by themselves | First Google Play submission (needs the SMS permission exception) and sideloading |
+| **Direct (full)** | `flutter build appbundle` | Default messaging app; sends automatically through the SIM, background service, schedules send by themselves | Google Play submission as a default SMS handler, and sideloading |
 | **Store** | `flutter build appbundle --dart-define=STORE_BUILD=true` | Messages app, one tap each; schedules post a "due" reminder | Backup if Google Play refuses the SMS permission |
 
 The store build removes `SEND_SMS`, `READ_PHONE_STATE`, the foreground service and its permissions, `WAKE_LOCK`
@@ -17,6 +17,16 @@ and `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` (`android/app/src/store/AndroidManife
 behaves as the store build).
 
 Output: `build/app/outputs/bundle/release/app-release.aab` — upload this file to Play Console.
+
+### Optional build values
+
+| `--dart-define` | Needed for |
+|---|---|
+| `GOOGLE_SERVER_CLIENT_ID=…` | Gmail sending on Android (the OAuth **Web** client id), docs/GMAIL_SETUP.md |
+| `GOOGLE_IOS_CLIENT_ID=…` | Gmail sending on iOS |
+| `STORE_BUILD=true` | The store build above |
+
+Email through a Mailgun-compatible API needs no build values (Settings › Email in the app).
 
 ## Release signing (one time)
 

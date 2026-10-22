@@ -1,6 +1,7 @@
 import 'dart:async';
 import '../data/repositories/campaign_repository.dart';
 import '../data/repositories/schedule_repository.dart';
+import '../domain/models/channels.dart';
 import '../domain/models/schedule.dart';
 import '../domain/models/statuses.dart';
 import '../features/campaigns/campaign_labels.dart';
@@ -8,6 +9,7 @@ import '../domain/services/send_limits.dart';
 import '../features/scheduling/next_wake.dart';
 import '../features/scheduling/schedule_runner.dart';
 import '../features/sms_sending/send_orchestrator.dart';
+import '../platform/email/email_sender.dart';
 import '../platform/sms/sms_capability_service.dart';
 import 'background_host.dart';
 
@@ -75,6 +77,12 @@ class BackgroundJob {
           await _send(r.campaignId!);
           sent = true;
         } else {
+          if (r.outcome == ScheduleOutcome.needsAttention && r.campaignId != null) {
+            // Texts wait for you, but its emails can go now.
+            try {
+              await orchestrator.runEmails(r.campaignId!);
+            } catch (_) {/* email not set up or not needed: the reminder below still says what to do */}
+          }
           await host.notifyResult(name, scheduleOutcomeLabel(r.outcome));
         }
       }
@@ -101,6 +109,9 @@ class BackgroundJob {
     } on StateError catch (e) {
       await host.notifyResult('${c.name} was not sent', e.message);
       return;
+    } on EmailNotReadyException catch (e) {
+      await host.notifyResult('${c.name} was not sent', e.message);
+      return;
     } finally {
       ticker.cancel();
     }
@@ -108,7 +119,7 @@ class BackgroundJob {
     await _awaitCallbacks(campaignId);
     final limit = hit == null
         ? ''
-        : '${limitLabel(hit.kind)} reached. Resumes automatically at ${formatWhen(hit.resumeAt, now: _clock())}. ';
+        : '${limitLabel(hit.kind, email: hit.email)} reached. Resumes automatically at ${formatWhen(hit.resumeAt, now: _clock())}. ';
     await host.notifyResult(
         await _resultTitle(campaignId, c.name), '$limit${_summary(await campaigns.statusCounts(campaignId))}');
   }
@@ -118,7 +129,8 @@ class BackgroundJob {
   Future<void> _awaitCallbacks(int campaignId) async {
     final deadline = _clock().add(waitForCallbacks);
     while (true) {
-      final n = await campaigns.statusCounts(campaignId);
+      // Texts only: emails get no delivery reports.
+      final n = await campaigns.statusCounts(campaignId, channel: MessageChannel.sms);
       final waiting = (n[RecipientStatus.submitted] ?? 0) + (n[RecipientStatus.sent] ?? 0);
       if (waiting == 0 || !_clock().isBefore(deadline)) return;
       await _sleep(pollEvery);

@@ -44,5 +44,5 @@ class MainActivity : FlutterActivity() {
         messages?.onActivityResult(requestCode)
     }
 
-    override fun onDestroy() { bridge?.dispose(); messages?.dispose(); super.onDestroy() }
+    override fun onDestroy() { bridge?.dispose(); messages?.dispose(); contacts?.dispose(); super.onDestroy() }
 }

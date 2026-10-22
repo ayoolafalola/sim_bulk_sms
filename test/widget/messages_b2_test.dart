@@ -21,7 +21,7 @@ import '../support/fakes.dart';
 const androidOk = SmsCapabilities(platform: SmsPlatform.android, canSendDirectly: true,
     usesComposerHandoff: false, canSelectSim: true, blocker: DirectSendBlocker.none);
 
-class _NoPhoneContacts implements PhoneContactsService {
+class _NoPhoneContacts extends FakePhoneContactsBase {
   @override Future<bool> hasPermission() async => false;
   @override Future<bool> requestPermission() async => false;
   @override Future<List<PhoneContact>> load() async => const [];

@@ -39,7 +39,8 @@ String scheduleOutcomeLabel(ScheduleOutcome o) => switch (o) {
       ScheduleOutcome.notReady => 'Not sent: campaign was no longer ready',
     };
 
-String limitLabel(LimitKind k) => k == LimitKind.hourly ? 'Hourly limit' : 'Daily limit';
+String limitLabel(LimitKind k, {bool email = false}) =>
+    '${k == LimitKind.hourly ? 'Hourly' : 'Daily'} ${email ? 'email ' : ''}limit';
 
 /// "14:32" today, otherwise "Thu 09:10".
 String formatWhen(DateTime t, {DateTime? now}) {
@@ -52,7 +53,8 @@ String formatWhen(DateTime t, {DateTime? now}) {
 /// Why a paused campaign is paused, for the campaign screen. Null if paused by you.
 String? pausedReasonText(Campaign c, {DateTime? now}) {
   if (c.status != CampaignStatus.paused || c.resumeAt == null) return null;
-  final which = c.pausedReason == 'hourly_limit' ? 'Hourly limit' : 'Daily limit';
+  final r = c.pausedReason ?? '';
+  final which = limitLabel(r.endsWith('hourly_limit') ? LimitKind.hourly : LimitKind.daily, email: r.startsWith('email_'));
   return '$which reached. Resumes automatically at ${formatWhen(c.resumeAt!, now: now)}.';
 }
 

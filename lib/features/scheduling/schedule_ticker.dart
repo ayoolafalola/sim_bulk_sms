@@ -111,6 +111,12 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
                 (_) => ref.read(dataVersionProvider.notifier).state++,
                 onError: (Object e) => _say('$name could not be sent: $e'),
               ));
+        } else if (r.outcome == ScheduleOutcome.needsAttention && r.campaignId != null) {
+          // Texts wait for you; its emails (if any) go now.
+          unawaited(ref.read(sendOrchestratorProvider).runEmails(r.campaignId!).then(
+                (_) => ref.read(dataVersionProvider.notifier).state++,
+                onError: (Object _) {},
+              ));
         }
       }
     } catch (e) {

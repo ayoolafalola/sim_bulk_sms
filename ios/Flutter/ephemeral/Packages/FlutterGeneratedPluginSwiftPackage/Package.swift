@@ -16,6 +16,7 @@ let package = Package(
     ],
     dependencies: [
         .package(name: "file_picker_darwin", path: "../.packages/file_picker_darwin-2.3.2"),
+        .package(name: "google_sign_in_ios", path: "../.packages/google_sign_in_ios-6.3.8"),
         .package(name: "sqflite_darwin", path: "../.packages/sqflite_darwin-2.4.4+1"),
         .package(name: "FlutterFramework", path: "../.packages/FlutterFramework")
     ],
@@ -24,6 +25,7 @@ let package = Package(
             name: "FlutterGeneratedPluginSwiftPackage",
             dependencies: [
                 .product(name: "file-picker-darwin", package: "file_picker_darwin"),
+                .product(name: "google-sign-in-ios", package: "google_sign_in_ios"),
                 .product(name: "sqflite-darwin", package: "sqflite_darwin"),
                 .product(name: "FlutterFramework", package: "FlutterFramework")
             ]

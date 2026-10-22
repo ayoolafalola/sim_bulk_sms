@@ -4,9 +4,11 @@ enum LimitKind { hourly, daily }
 
 /// Sending must wait: which limit, and when the next message may go.
 class LimitHit {
-  const LimitHit(this.kind, this.resumeAt);
+  const LimitHit(this.kind, this.resumeAt, {this.email = false});
   final LimitKind kind;
   final DateTime resumeAt;
+  /// An email limit (otherwise the SMS limits).
+  final bool email;
 }
 
 const _hour = Duration(hours: 1), _day = Duration(hours: 24);

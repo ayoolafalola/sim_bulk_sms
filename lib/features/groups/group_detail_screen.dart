@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/providers.dart';
 import '../../domain/models/contact.dart';
+import '../contacts/contact_sync_runner.dart';
 import 'groups_screen.dart';
 import '../common/page_layout.dart';
 import '../common/ui.dart';
@@ -19,8 +20,11 @@ class GroupDetailScreen extends ConsumerWidget {
     final group = groups?.where((g) => g.id == groupId).firstOrNull;
     final members = ref.watch(groupMembersProvider(groupId));
     final repo = ref.read(groupRepositoryProvider);
+    // With phone contacts synced, everyone is already here: "Add members" covers it.
+    final syncOn = ref.watch(contactsSyncModeProvider).valueOrNull == true;
     return Scaffold(
       appBar: AppBar(title: Text(group?.name ?? 'Group'), actions: [
+        if (!syncOn)
         IconButton(
           tooltip: 'Add from phone',
           icon: const Icon(Icons.contact_phone_outlined),
@@ -77,6 +81,7 @@ class GroupDetailScreen extends ConsumerWidget {
             ? Center(
                 child: Column(mainAxisSize: MainAxisSize.min, children: [
                   const Text('This group has no members yet.'),
+                  if (!syncOn)
                   TextButton.icon(
                       onPressed: () => context.push('/contacts/import?group=$groupId'),
                       icon: const Icon(Icons.contact_phone_outlined),

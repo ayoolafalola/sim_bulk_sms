@@ -6,6 +6,8 @@ import '../../app/capability_providers.dart';
 import '../../app/providers.dart';
 import '../../app/sending_providers.dart';
 import '../../app/theme.dart';
+import '../campaigns/campaign_labels.dart';
+import '../contacts/contact_sync_runner.dart';
 import '../common/page_layout.dart';
 import '../common/ui.dart';
 import '../settings/send_settings_screen.dart';
@@ -55,6 +57,17 @@ class SettingsScreen extends ConsumerWidget {
             _Row('Hourly limit', s == null ? '' : limit(s.hourlyLimit), () => context.push('/settings/send')),
             _Row('Daily limit', s == null ? '' : limit(s.dailyLimit), () => context.push('/settings/send')),
           ]),
+          const SectionLabel('Email'),
+          _Group(children: [
+            _Row('Email sending', ref.watch(emailSettingsProvider).valueOrNull?.providerLabel ?? '',
+                () => context.push('/settings/email'),
+                trailing: ref.watch(emailSettingsProvider).valueOrNull?.ready == false &&
+                        ref.watch(emailSettingsProvider).valueOrNull?.provider.name != 'off'
+                    ? const StatusTag('Not finished', tone: Tone.warn)
+                    : null),
+          ]),
+          const SectionLabel('Contacts'),
+          const _ContactsSyncGroup(),
           const SectionLabel('App'),
           _Group(children: [
             _Row(
@@ -112,4 +125,64 @@ class _Row extends StatelessWidget {
           Icon(Icons.chevron_right, color: AppColors.of(context).muted),
         ]),
       );
+}
+
+/// Phone-contacts sync: on/off, how many came from the phone, and when it last ran.
+class _ContactsSyncGroup extends ConsumerStatefulWidget {
+  const _ContactsSyncGroup();
+
+  @override
+  ConsumerState<_ContactsSyncGroup> createState() => _ContactsSyncGroupState();
+}
+
+class _ContactsSyncGroupState extends ConsumerState<_ContactsSyncGroup> {
+  bool _busy = false;
+
+  Future<void> _do(Future<void> Function() f) async {
+    setState(() => _busy = true);
+    try {
+      await f();
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final on = ref.watch(contactsSyncModeProvider).valueOrNull == true;
+    final info = ref.watch(contactsSyncInfoProvider).valueOrNull;
+    final runner = ref.read(contactSyncRunnerProvider);
+    final at = info?.at;
+    final subtitle = !on
+        ? 'Show everyone in your phone\'s Contacts here, kept up to date.'
+        : [
+            '${info?.count ?? 0} from your phone',
+            if (at != null) 'synced ${formatWhen(at)}',
+          ].join(' · ');
+    return _Group(children: [
+      SwitchListTile(
+        title: const Text('Sync phone contacts'),
+        subtitle: Text(subtitle),
+        value: on,
+        onChanged: _busy
+            ? null
+            : (v) => _do(() async {
+                  if (!v) return runner.disable();
+                  final messenger = ScaffoldMessenger.of(context);
+                  if (await runner.enable() == null && !await ref.read(phoneContactsServiceProvider).hasPermission()) {
+                    messenger.showSnackBar(
+                        const SnackBar(content: Text('Allow Contacts access to use your phone\'s contacts.')));
+                  }
+                }),
+      ),
+      if (on)
+        ListTile(
+          title: const Text('Sync now'),
+          trailing: _busy
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.sync),
+          onTap: _busy ? null : () => _do(() => runner.run(full: true)),
+        ),
+    ]);
+  }
 }

@@ -26,6 +26,8 @@ void main() {
       expect(declares(main, p), true, reason: '$p missing from the main manifest');
     }
     expect(main, contains('android:name=".SendService"'));
+    // Release builds only get INTERNET when the main manifest asks (campaign emails).
+    expect(declares(main, 'INTERNET'), true);
   });
 
   test('full build has every default-messaging-app component, guarded as Android requires', () {

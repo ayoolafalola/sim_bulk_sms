@@ -8,6 +8,7 @@ import '../data/repositories/schedule_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../domain/models/campaign.dart';
 import '../domain/models/contact.dart';
+import '../domain/models/email_settings.dart';
 import '../domain/models/schedule.dart';
 import '../domain/models/send_settings.dart';
 import '../domain/models/statuses.dart';
@@ -129,6 +130,11 @@ final settingsRepositoryProvider = Provider((ref) => SettingsRepository(ref.watc
 final sendSettingsProvider = FutureProvider<SendSettings>((ref) {
   ref.watch(dataVersionProvider);
   return ref.watch(settingsRepositoryProvider).load();
+});
+
+final emailSettingsProvider = FutureProvider<EmailSettings>((ref) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(settingsRepositoryProvider).loadEmail();
 });
 
 /// First-launch setup finished (or skipped through to the end).

@@ -4,6 +4,10 @@ import '../data/repositories/attempt_repository.dart';
 import '../features/sms_sending/send_orchestrator.dart';
 import '../features/setup/setup_status.dart';
 import '../platform/background/background_send_service.dart';
+import '../domain/models/email_settings.dart';
+import '../platform/email/email_sender.dart';
+import '../platform/email/email_senders.dart';
+import '../platform/email/google_gmail_auth.dart';
 import '../platform/messages/messages_service.dart';
 import '../platform/sms/android_sms_service.dart';
 import '../platform/sms/ios_sms_service.dart';
@@ -18,12 +22,27 @@ final smsServiceProvider = Provider<SmsCapabilityService>(
 
 /// Call `attemptRepositoryProvider.recoverInterrupted()` once at startup
 /// before reading this.
+final gmailAuthProvider = Provider<GoogleGmailAuth>((ref) => GoogleGmailAuth());
+
+/// The HTTP call email senders use; null = the real one (tests override it).
+final emailPostProvider = Provider<HttpPost?>((ref) => null);
+
+/// The email sender for [settings], or null when email is off.
+final emailSenderFactoryProvider = Provider<EmailSender? Function(EmailSettings)>((ref) {
+  final gmail = ref.watch(gmailAuthProvider);
+  final post = ref.watch(emailPostProvider);
+  return (s) => emailSenderFor(s, gmail: gmail, post: post);
+});
+
 final sendOrchestratorProvider = Provider((ref) {
+  final settings = ref.watch(settingsRepositoryProvider);
+  final senderFor = ref.watch(emailSenderFactoryProvider);
   final o = SendOrchestrator(
     sms: ref.watch(smsServiceProvider),
     attempts: ref.watch(attemptRepositoryProvider),
     campaigns: ref.watch(campaignRepositoryProvider),
-    settings: ref.watch(settingsRepositoryProvider),
+    settings: settings,
+    emailSender: () async => senderFor(await settings.loadEmail()),
   )..start();
   ref.onDispose(o.dispose);
   return o;

@@ -27,7 +27,8 @@ const setupInfo = <SetupItem, SetupItemInfo>{
           'On Samsung also: Settings › Battery › Background usage limits › Never sleeping apps › add $appName.',
       ifMissing: 'The phone may delay or stop background sends.'),
   SetupItem.contacts: SetupItemInfo('Contacts (optional)',
-      'Only needed for "Import from phone". The app reads names and numbers; nothing is uploaded.'),
+      'Your phone\'s contacts appear in the app, ready to message, and stay in sync. They are read, never changed, '
+          'and nothing is uploaded.'),
 };
 
 /// Store build: no automatic sending, so alarms only time the "campaign is due" reminder.

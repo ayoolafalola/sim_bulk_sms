@@ -2,6 +2,7 @@ import '../../data/repositories/campaign_repository.dart';
 import '../../data/repositories/contact_repository.dart';
 import '../../data/repositories/group_repository.dart';
 import '../../domain/models/campaign.dart';
+import '../../domain/models/channels.dart';
 import '../../domain/models/contact.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/campaign_planner.dart';
@@ -61,19 +62,23 @@ class CampaignComposer {
     required Set<int> groupIds,
     required Set<int> contactIds,
     Map<String, String> fallbacks = const {},
+    SendChannel channel = SendChannel.sms,
+    String subject = '',
   }) async =>
       buildSnapshotPlan(
         template: template,
         contacts: await resolveSelection(groupIds: groupIds, contactIds: contactIds),
         suppressedE164: await contacts.suppressedNumbers(),
         fallbacks: fallbacks,
+        channel: channel,
+        subjectTemplate: subject,
       );
 
   /// Plan for a saved campaign using its stored audience and fallbacks.
   Future<SnapshotPlan> planForCampaign(Campaign c) async {
     final a = await campaigns.audience(c.id);
     return plan(template: c.messageTemplate, groupIds: a.groupIds, contactIds: a.contactIds,
-        fallbacks: await campaigns.fallbacks(c.id));
+        fallbacks: await campaigns.fallbacks(c.id), channel: c.channel, subject: c.subject ?? '');
   }
 
   /// Creates (or rewrites an editable) campaign and saves its snapshot,
@@ -86,12 +91,15 @@ class CampaignComposer {
     required SnapshotPlan plan,
     CampaignAudience audience = const CampaignAudience(),
     Map<String, String> fallbacks = const {},
+    SendChannel channel = SendChannel.sms,
+    String? subject,
   }) async {
     if (!plan.canSave) throw StateError('This campaign has blocked recipients or no recipients.');
     final id = campaignId ??
-        await campaigns.createDraft(name: name, template: template, platform: platform, fallbacks: fallbacks);
+        await campaigns.createDraft(
+            name: name, template: template, platform: platform, fallbacks: fallbacks, channel: channel, subject: subject);
     if (campaignId != null) {
-      await campaigns.updateDraft(id, name: name, template: template);
+      await campaigns.updateDraft(id, name: name, template: template, channel: channel, subject: subject);
       await campaigns.saveFallbacks(id, fallbacks);
     }
     await campaigns.saveAudience(id, audience);
@@ -111,7 +119,8 @@ class CampaignComposer {
       recipients = [
         for (final r in await campaigns.recipients(sourceId))
           if (!suppressed.contains(r.phone) && !optedOut.contains(r.contactId))
-            SnapshotRecipient(contactId: r.contactId, name: r.name, phoneE164: r.phone, renderedMessage: r.renderedMessage),
+            SnapshotRecipient(contactId: r.contactId, name: r.name, phoneE164: r.phone, renderedMessage: r.renderedMessage,
+                channel: r.channel, email: r.email, subject: r.subject),
       ];
     } else {
       final p = await planForCampaign(src);
@@ -139,7 +148,8 @@ class CampaignComposer {
       {required String name, required List<SnapshotRecipient> recipients, required String platform, int? scheduleId}) async {
     final id = await campaigns.createDraft(
         name: name, template: src.messageTemplate, platform: platform,
-        sourceCampaignId: src.id, scheduleId: scheduleId, fallbacks: await campaigns.fallbacks(src.id));
+        sourceCampaignId: src.id, scheduleId: scheduleId, fallbacks: await campaigns.fallbacks(src.id),
+        channel: src.channel, subject: src.subject);
     await campaigns.saveAudience(id, await campaigns.audience(src.id));
     await campaigns.saveSnapshot(id, recipients);
     return id;

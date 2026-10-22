@@ -6,7 +6,7 @@ import android.content.Intent
 
 /**
  * Incoming picture/group messages (MMS) — required for the default messaging role.
- * Downloading and showing them comes in Part C; until then the user is told one arrived.
+ * Not downloaded yet (Part C, deferred): the user is told one arrived.
  */
 class MmsReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {

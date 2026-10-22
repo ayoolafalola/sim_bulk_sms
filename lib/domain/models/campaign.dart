@@ -1,3 +1,4 @@
+import 'channels.dart';
 import 'statuses.dart';
 
 class Campaign {
@@ -5,6 +6,7 @@ class Campaign {
     required this.id, required this.name, required this.messageTemplate, required this.status,
     required this.platform, this.subscriptionId, required this.recipientCount, required this.createdAt,
     this.sourceCampaignId, this.scheduleId, this.pausedReason, this.resumeAt,
+    this.channel = SendChannel.sms, this.subject,
   });
   final int id;
   final String name, messageTemplate, platform;
@@ -20,6 +22,9 @@ class Campaign {
   final String? pausedReason;
   /// When a limit-paused campaign resumes by itself (local time).
   final DateTime? resumeAt;
+  final SendChannel channel;
+  /// Email subject template (email channels only).
+  final String? subject;
 }
 
 /// Who a campaign targets: whole groups and/or individual contacts.
@@ -33,11 +38,19 @@ class CampaignRecipient {
   const CampaignRecipient({
     required this.id, required this.campaignId, this.contactId, required this.name,
     required this.phone, required this.renderedMessage, required this.status, required this.attemptCount,
+    this.channel = MessageChannel.sms, this.email, this.subject,
   });
   final int id, campaignId, attemptCount;
   final int? contactId;
+  /// E.164 number; may be empty on an email row.
   final String name, phone, renderedMessage;
   final RecipientStatus status;
+  final MessageChannel channel;
+  /// Email rows: address and rendered subject.
+  final String? email, subject;
+  bool get isEmail => channel == MessageChannel.email;
+  /// Where it goes: the number or the email address.
+  String get address => isEmail ? (email ?? '') : phone;
 }
 
 class SnapshotLockedException implements Exception {

@@ -29,17 +29,32 @@ class UpsertResult {
   final int added, existing;
 }
 
+/// A contacts row (any query selecting `contacts.*`) as a [Contact].
+Contact contactFromRow(Map<String, Object?> r) => Contact(
+      id: r['id'] as int, name: r['name'] as String, phoneRaw: r['phone_raw'] as String,
+      phoneNormalized: r['phone_normalized'] as String?, email: r['email'] as String?,
+      consent: consentFromDb(r['consent_status'] as String),
+      source: r['source'] == 'phone' ? ContactSource.phone : ContactSource.app,
+      lookupKey: r['lookup_key'] as String?, phoneContactId: r['phone_contact_id'] as int?,
+      givenName: r['given_name'] as String?, familyName: r['family_name'] as String?,
+      organization: r['organization'] as String?, jobTitle: r['job_title'] as String?,
+      birthday: r['birthday'] as String?, address: r['address'] as String?, note: r['note'] as String?,
+    );
+
 class ContactRepository {
   ContactRepository(this._db);
   final Database _db;
 
-  Contact _fromRow(Map<String, Object?> r) => Contact(
-      id: r['id'] as int, name: r['name'] as String, phoneRaw: r['phone_raw'] as String,
-      phoneNormalized: r['phone_normalized'] as String?, email: r['email'] as String?,
-      consent: consentFromDb(r['consent_status'] as String));
+  Contact _fromRow(Map<String, Object?> r) => contactFromRow(r);
 
   Future<int> add(Contact c) async {
     final now = _now();
+    // Phone contacts may share numbers, so uniqueness is checked here for manual adds.
+    if (c.phoneNormalized != null &&
+        (await _db.query('contacts', columns: ['id'], where: 'phone_normalized = ?', whereArgs: [c.phoneNormalized]))
+            .isNotEmpty) {
+      throw DuplicateContactException(c.phoneNormalized!);
+    }
     try {
       return await _db.insert('contacts', {
         'name': c.name, 'phone_raw': c.phoneRaw, 'phone_normalized': c.phoneNormalized, 'email': c.email,
@@ -57,7 +72,7 @@ class ContactRepository {
     try {
       await _db.update('contacts', {
         'name': c.name, 'phone_raw': c.phoneRaw, 'phone_normalized': c.phoneNormalized,
-        'email': c.email, 'updated_at': _now(),
+        'email': c.email, 'birthday': c.birthday, 'organization': c.organization, 'updated_at': _now(),
       }, where: 'id = ?', whereArgs: [c.id]);
     } on DatabaseException catch (e) {
       if (e.isUniqueConstraintError()) throw DuplicateContactException(c.phoneNormalized ?? '');
@@ -79,14 +94,61 @@ class ContactRepository {
     final rows = q.isEmpty
         ? await _db.query('contacts', orderBy: 'name COLLATE NOCASE')
         : await _db.query('contacts',
-            where: 'name LIKE ? OR phone_raw LIKE ? OR phone_normalized LIKE ?',
-            whereArgs: ['%$q%', '%$q%', '%$q%'], orderBy: 'name COLLATE NOCASE');
+            where: 'name LIKE ? OR phone_raw LIKE ? OR phone_normalized LIKE ? OR email LIKE ? OR organization LIKE ?',
+            whereArgs: ['%$q%', '%$q%', '%$q%', '%$q%', '%$q%'], orderBy: 'name COLLATE NOCASE');
     return rows.map(_fromRow).toList();
   }
 
+  Future<Contact?> get(int id) async {
+    final rows = await _db.query('contacts', where: 'id = ?', whereArgs: [id]);
+    return rows.isEmpty ? null : _fromRow(rows.first);
+  }
+
+  /// Every number, email and date of a contact (an app-only contact has just its own).
+  Future<ContactDetails?> details(int id) async {
+    final rows = await _db.query('contacts', where: 'id = ?', whereArgs: [id]);
+    if (rows.isEmpty) return null;
+    final c = _fromRow(rows.first);
+    var phones = [
+      for (final r in await _db.query('contact_phones', where: 'contact_id = ?', whereArgs: [id], orderBy: 'id'))
+        ContactValue(value: r['raw'] as String, normalized: r['normalized'] as String?, label: r['label'] as String?,
+            isDefault: r['is_default'] == 1),
+    ];
+    var emails = [
+      for (final r in await _db.query('contact_emails', where: 'contact_id = ?', whereArgs: [id], orderBy: 'id'))
+        ContactValue(value: r['address'] as String, label: r['label'] as String?, isDefault: r['is_default'] == 1),
+    ];
+    if (phones.isEmpty && c.phoneRaw.isNotEmpty) phones = [ContactValue(value: c.phoneRaw, normalized: c.phoneNormalized)];
+    if (emails.isEmpty && (c.email?.isNotEmpty ?? false)) emails = [ContactValue(value: c.email!)];
+    return ContactDetails(
+      contact: c, phones: phones, emails: emails,
+      dates: [
+        for (final r in await _db.query('contact_dates', where: 'contact_id = ?', whereArgs: [id], orderBy: 'id'))
+          ContactDate(kind: r['kind'] as String, value: r['value'] as String, label: r['label'] as String?),
+      ],
+      preferredPhone: rows.first['preferred_phone'] as String?,
+      preferredEmail: rows.first['preferred_email'] as String?,
+    );
+  }
+
+  /// The number to text this contact on (kept across syncs).
+  Future<void> preferPhone(int id, ContactValue phone) => _db.update('contacts', {
+        'preferred_phone': phone.normalized ?? phone.value, 'phone_raw': phone.value,
+        'phone_normalized': phone.normalized, 'updated_at': _now(),
+      }, where: 'id = ?', whereArgs: [id]);
+
+  /// The email to use for this contact (kept across syncs).
+  Future<void> preferEmail(int id, String email) => _db.update('contacts',
+      {'preferred_email': email, 'email': email, 'updated_at': _now()}, where: 'id = ?', whereArgs: [id]);
+
   /// The app contact with this number, if any.
   Future<Contact?> findByE164(String e164) async {
-    final rows = await _db.query('contacts', where: 'phone_normalized = ?', whereArgs: [e164], limit: 1);
+    // Their texting number first, then any of their other numbers.
+    final rows = await _db.rawQuery('''
+      SELECT c.* FROM contacts c WHERE c.phone_normalized = ?
+      UNION ALL
+      SELECT c.* FROM contacts c JOIN contact_phones p ON p.contact_id = c.id WHERE p.normalized = ?
+      LIMIT 1''', [e164, e164]);
     return rows.isEmpty ? null : _fromRow(rows.first);
   }
 

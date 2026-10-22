@@ -16,7 +16,7 @@ import 'package:sim_bulk_sms/platform/contacts/phone_contacts_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import '../support/fakes.dart';
 
-class _Contacts implements PhoneContactsService {
+class _Contacts extends FakePhoneContactsBase {
   @override Future<bool> hasPermission() async => false;
   @override Future<bool> requestPermission() async => false;
   @override Future<List<PhoneContact>> load() async => const [];

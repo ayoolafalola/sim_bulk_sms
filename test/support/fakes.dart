@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:sim_bulk_sms/domain/models/contact.dart';
 import 'package:sim_bulk_sms/domain/models/statuses.dart';
+import 'package:sim_bulk_sms/platform/contacts/phone_contacts_service.dart';
 import 'package:sim_bulk_sms/platform/background/background_send_service.dart';
 import 'package:sim_bulk_sms/platform/messages/messages_service.dart';
 import 'package:sim_bulk_sms/platform/sms/messages_app.dart';
@@ -159,4 +161,24 @@ class FakeMessagesService implements MessagesService {
     _events.add('launch');
   }
   @override Stream<String> get events => _events.stream;
+}
+
+/// Phone contacts: by default none, permission granted; [snapshot] is what a sync returns.
+class FakePhoneContactsBase implements PhoneContactsService {
+  ContactsSnapshot snapshot = const ContactsSnapshot(contacts: [], now: 1, full: true);
+  final syncedSince = <int>[];
+  final edited = <Contact>[];
+  @override Future<bool> hasPermission() async => true;
+  @override Future<bool> requestPermission() async => true;
+  @override Future<List<PhoneContact>> load() async => const [];
+  @override
+  Future<ContactsSnapshot> sync({int since = 0}) async {
+    syncedSince.add(since);
+    return snapshot;
+  }
+  @override
+  Future<bool> edit(Contact contact) async {
+    edited.add(contact);
+    return true;
+  }
 }

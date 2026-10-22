@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/capability_providers.dart';
-import '../../app/providers.dart';
 import '../../app/sending_providers.dart';
+import '../contacts/contact_sync_runner.dart';
 import 'setup_status.dart';
 
 /// Asks for [item], or opens the right settings page when Android won't ask
@@ -36,7 +36,8 @@ Future<void> fixSetupItem(WidgetRef ref, SetupItem item, SetupStatus s) async {
       if (permanent) {
         await bg.openAppSettings();
       } else {
-        await ref.read(phoneContactsServiceProvider).requestPermission();
+        // Allowing contacts here is the go-ahead to use (and sync) the phone's contacts.
+        await ref.read(contactSyncRunnerProvider).enable();
       }
   }
   ref.read(backgroundStatusVersionProvider.notifier).state++;

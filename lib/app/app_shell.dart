@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../features/contacts/contact_sync_runner.dart';
 import 'providers.dart';
 import 'sending_providers.dart';
 
@@ -17,27 +18,45 @@ class AppShell extends ConsumerStatefulWidget {
   ConsumerState<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends ConsumerState<AppShell> {
+class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver {
   StreamSubscription<String>? _events;
+  Timer? _contactsDebounce;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final svc = ref.read(messagesServiceProvider);
     if (svc != null) {
       _events = svc.events.listen((type) {
+        if (type == 'contacts') {
+          // The phone's contacts changed: sync the changes shortly (edits come in bursts).
+          _contactsDebounce?.cancel();
+          _contactsDebounce = Timer(const Duration(seconds: 2), _syncContacts);
+          return;
+        }
         ref.read(messagesVersionProvider.notifier).state++;
         if (type == 'launch') _openLaunch();
       });
       WidgetsBinding.instance.addPostFrameCallback((_) => _openLaunch()); // opened from a notification / another app
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncContacts());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _events?.cancel();
+    _contactsDebounce?.cancel();
     super.dispose();
   }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _syncContacts(); // e.g. back from editing in the Contacts app
+  }
+
+  Future<void> _syncContacts() => ref.read(contactSyncRunnerProvider).run();
 
   Future<void> _openLaunch() async {
     final l = await ref.read(messagesServiceProvider)?.takeLaunch();

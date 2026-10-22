@@ -89,3 +89,42 @@
 - Long-press a message: Copy, or Delete with Undo. Long-press a conversation: Mark as read, Delete conversation (confirmed). Mark all as read on the Messages tab.
 - Dual-SIM: a SIM chip on the reply bar, defaulting to the SIM the person last texted you on, remembered per conversation.
 - Conversation header shows the person's groups; menu: Add to contacts, Add to group…, Delete conversation.
+
+## Part D1: phone-synced contacts (analyze clean, 233 tests; native changes not yet built)
+- Contacts tab asks once: "Use your phone's contacts?" On yes (and Contacts access), everyone in the phone's Contacts appears here and stays in sync: on launch, on return to the app, and shortly after any change in the Contacts app. "Not now" syncs nothing; Settings › Contacts › Sync phone contacts turns it on or off, with Sync now.
+- Contacts follow the phone's format (schema v6): every number and email with labels, birthday and other dates, company, job title, address and note. Texts go to the number you pick (else the phone's default, else Mobile); same for email. Contacts with neither are skipped.
+- Contacts deleted on the phone are removed here. Hand-added and file-imported contacts stay app-only. An app contact with the same number as a phone contact becomes that phone contact, keeping its consent, groups and history.
+- New contact screen: Message, Add to group, numbers/emails ("used for texts"), dates, company, address, note, groups, consent, suppress. Edit opens the phone's Contacts app for phone contacts (changes sync back); app-only contacts are edited in the app and can be deleted (with Undo).
+- Contacts tab: tap opens the contact; long-press or Select picks several, Select all, Add to group (or a new group). "From phone" one-off import is shown only while sync is off; group "Add from phone" likewise.
+- New campaign placeholders: {company} and {birthday}.
+- Two phone contacts may share a number; numbers added in the app stay unique.
+
+## Part D2 + D3: email (analyze clean, 256 tests; native/plugin changes not yet built)
+- Campaigns choose **Send by**: Text · Email · Text and email · Text, or email if no number; an email subject
+  (placeholders work) and an email preview. Each person gets one row per channel; the campaign screen shows SMS
+  and Email counts separately and each row's number or address.
+- **Settings › Email:** Off · **Mailgun API** (any Mailgun-compatible service: base URL, sending domain, API key,
+  From name/address) · **Gmail** (send-only `gmail.send`, via `google_sign_in` 7.2; needs Google client ids at
+  build time, docs/GMAIL_SETUP.md). Email limits (default 50/hour, 400/day), unsubscribe line (on by default,
+  plus `List-Unsubscribe`), **Send test email**.
+- Emails send by themselves everywhere: with texts in the Android background service; on iPhone or when this
+  isn't the default app, emails go first and texts follow the usual flow. Scheduled email-only campaigns run
+  automatically; mixed scheduled runs send their emails and wait for you for the texts.
+- Outcomes: 2xx sent (provider id stored), 4xx failed, 5xx/timeout **unknown** (never resent automatically).
+  A refused API key or wrong address pauses the campaign. Gmail tokens refresh once on 401; if Google needs a
+  new sign-in the run doesn't start and you're told why.
+- Schema v7 (campaign channel and subject; recipient channel, email and subject). Contacts can be added with
+  only an email. `INTERNET` permission in the main manifest (release builds need it for email).
+- Docs: docs/EMAIL_API.md, docs/GMAIL_SETUP.md.
+
+## Part E: Play and privacy update (docs only)
+- Play declarations now use **Default SMS handler** (with a video script), data safety answers for email,
+  reviewer notes, release checklist (Part C first, Gmail build values), store listing, privacy policy (SMS app,
+  contacts sync, email providers, Gmail Limited Use).
+
+## Phase 6: README and CI
+- README rewritten. GitHub Actions runs `flutter analyze` and `flutter test` on pushes to `main` and pull requests.
+- Part C (picture messages) is deferred. Submitting without it is allowed; the Play docs record the review risk.
+- Publisher details: Comeriver Limited, messages@comeriver.com, https://messages.comeriver.com. Privacy policy
+  for https://messages.comeriver.com/privacy and a draft terms of use (docs/terms) for /terms; Play, store
+  listing and Gmail consent-screen docs point there.

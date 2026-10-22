@@ -60,9 +60,6 @@ class GroupRepository {
     final rows = await _db.rawQuery('''
       SELECT c.* FROM contacts c JOIN group_contacts gc ON gc.contact_id = c.id
       WHERE gc.group_id = ? ORDER BY c.name COLLATE NOCASE''', [groupId]);
-    return rows.map((r) => Contact(
-        id: r['id'] as int, name: r['name'] as String, phoneRaw: r['phone_raw'] as String,
-        phoneNormalized: r['phone_normalized'] as String?, email: r['email'] as String?,
-        consent: consentFromDb(r['consent_status'] as String))).toList();
+    return rows.map(contactFromRow).toList();
   }
 }

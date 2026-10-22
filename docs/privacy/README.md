@@ -1,8 +1,14 @@
-# Publishing the privacy policy on GitHub Pages
+# Publishing the privacy policy and terms
 
-1. Fill in the two bracketed placeholders in `index.html` (company legal name, support email).
-2. Push this project to GitHub (Pages is free for public repositories; a public repo also shows the source code —
-   if you'd rather not, copy just `index.html` into a separate small public repo).
-3. GitHub › repository › Settings › Pages › Build and deployment: "Deploy from a branch", branch `main`, folder `/docs`.
-4. The policy is then at `https://<your-github-user>.github.io/<repo>/privacy/` — use that URL in Play Console
-   and the store listing.
+Both pages are ready to publish as they are (plain HTML, light and dark mode, no scripts):
+
+| File | URL |
+| --- | --- |
+| `docs/privacy/index.html` | https://messages.comeriver.com/privacy |
+| `docs/terms/index.html` | https://messages.comeriver.com/terms |
+
+When the messages.comeriver.com site is built, copy each file to that path (e.g. `/privacy/index.html` and
+`/terms/index.html`), or serve them as `/privacy` and `/terms`. These URLs are used in Play Console, the store
+listing and the Google OAuth consent screen; they must be live before submitting either.
+
+Update the "Effective" date at the top of a page whenever its content changes.

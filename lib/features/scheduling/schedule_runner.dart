@@ -1,5 +1,6 @@
 import '../../data/repositories/campaign_repository.dart';
 import '../../data/repositories/schedule_repository.dart';
+import '../../domain/models/channels.dart';
 import '../../domain/models/schedule.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/schedule_calculator.dart';
@@ -43,11 +44,13 @@ class ScheduleRunner {
 
       int? runId;
       ScheduleOutcome outcome;
+      // Emails always go by themselves; only texts may need the user.
+      final auto = canAutoSend || src.channel == SendChannel.email;
       if (s.kind == ScheduleKind.once) {
         // A one-time schedule sends the campaign itself, exactly as approved.
         if (src.status == CampaignStatus.ready) {
           runId = src.id;
-          outcome = canAutoSend ? ScheduleOutcome.started : ScheduleOutcome.needsAttention;
+          outcome = auto ? ScheduleOutcome.started : ScheduleOutcome.needsAttention;
         } else {
           outcome = ScheduleOutcome.notReady;
         }
@@ -59,7 +62,7 @@ class ScheduleRunner {
             ? ScheduleOutcome.blocked
             : r.empty
                 ? ScheduleOutcome.noRecipients
-                : canAutoSend ? ScheduleOutcome.started : ScheduleOutcome.needsAttention;
+                : auto ? ScheduleOutcome.started : ScheduleOutcome.needsAttention;
       }
       await schedules.recordRun(s, now: now, outcome: outcome, runCampaignId: runId);
       out.add(ScheduleRunResult(s.id, outcome, campaignId: runId, campaignName: src.name));

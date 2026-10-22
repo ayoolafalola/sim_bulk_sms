@@ -75,10 +75,15 @@ void main() {
     await start(t);
     appRouter.go('/contacts');
     await settle(t, until: find.text('Ada Okafor'));
-    await t.tap(find.text('Ada Okafor'));
-    await t.pumpAndSettle();
-    await t.tap(find.text('Delete'));
-    await t.pumpAndSettle(); // the action sheet finishes closing
+    await t.ensureVisible(find.text('AO'));
+    await t.pump();
+    await t.tap(find.text('AO'));
+    await settle(t, until: find.text('Delete contact'));
+    expect(find.text('Saved in this app'), findsOneWidget);
+    await t.ensureVisible(find.text('Delete contact'));
+    await settle(t);
+    await t.tap(find.text('Delete contact'));
+    await settle(t, until: find.text('Deleted Ada Okafor'));
     expect(find.text('Ada Okafor'), findsNothing);
     expect(find.text('Deleted Ada Okafor'), findsOneWidget);
     await t.tap(find.text('Undo'));

@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../../domain/models/campaign.dart';
+import '../../domain/models/channels.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/campaign_outcome.dart';
 import '../../domain/services/recipient_state_machine.dart';
@@ -23,16 +24,29 @@ class AttemptRepository {
 
   static const _inFlight = "('prepared','submitted','awaiting_user_action')";
 
-  Future<CampaignRecipient?> nextPending(int campaignId) async {
+  /// The next pending row, optionally only on one [channel].
+  Future<CampaignRecipient?> nextPending(int campaignId, {MessageChannel? channel}) async {
     final rows = await _db.query('campaign_recipients',
-        where: "campaign_id = ? AND status = 'pending'", whereArgs: [campaignId], orderBy: 'id', limit: 1);
-    if (rows.isEmpty) return null;
-    final r = rows.first;
-    return CampaignRecipient(
-        id: r['id'] as int, campaignId: campaignId, contactId: r['contact_id'] as int?,
-        name: r['recipient_name_snapshot'] as String, phone: r['phone_number_snapshot'] as String,
-        renderedMessage: r['rendered_message'] as String,
-        status: recipientStatusFromDb(r['status'] as String), attemptCount: r['attempt_count'] as int);
+        where: "campaign_id = ? AND status = 'pending'${channel == null ? '' : ' AND channel = ?'}",
+        whereArgs: [campaignId, if (channel != null) channel == MessageChannel.email ? 'email' : 'sms'],
+        orderBy: 'id', limit: 1);
+    return rows.isEmpty ? null : recipientFromRow(rows.first);
+  }
+
+  /// Stores the provider's id for a sent email (e.g. Mailgun's message id).
+  Future<void> setOperationId(int attemptId, String id) =>
+      _db.update('send_attempts', {'native_operation_id': id}, where: 'id = ?', whereArgs: [attemptId]);
+
+  /// When emails were handed to the email provider since [since] (for the email limits).
+  Future<List<DateTime>> emailSendTimesSince(DateTime since) async {
+    final rows = await _db.query('send_attempts', columns: ['initiated_at'],
+        where: "platform = 'email' AND status <> 'prepared' AND initiated_at >= ?",
+        whereArgs: [since.subtract(const Duration(minutes: 1)).toUtc().toIso8601String()], orderBy: 'initiated_at');
+    return [
+      for (final r in rows)
+        if (!DateTime.parse(r['initiated_at'] as String).isBefore(since))
+          DateTime.parse(r['initiated_at'] as String).toLocal(),
+    ];
   }
 
   /// Creates attempt N for a `pending` recipient and moves it to `prepared`.

@@ -2,7 +2,12 @@ import 'dart:async';
 import '../../data/repositories/attempt_repository.dart';
 import '../../data/repositories/campaign_repository.dart';
 import '../../data/repositories/settings_repository.dart';
+import '../../domain/models/campaign.dart';
+import '../../domain/models/channels.dart';
+import '../../domain/models/email_settings.dart';
 import '../../domain/models/send_settings.dart';
+import '../../domain/services/email_body.dart';
+import '../../platform/email/email_sender.dart';
 import '../../domain/services/send_limits.dart';
 import '../../domain/models/statuses.dart';
 import '../../platform/sms/sms_capability_service.dart';
@@ -25,14 +30,16 @@ class SendBlockedException implements Exception {
   String toString() => message ?? 'Sending is blocked: ${blocker.name}';
 }
 
-/// Coordinates the persistent queue with the platform SMS service.
-/// - Android: throttled automatic loop (`runAndroid`); results arrive via events.
+/// Coordinates the persistent queue with the platform SMS service and the email sender.
+/// - Android: throttled automatic loop (`runAndroid`) for texts and emails; SMS results arrive via events.
+/// - Emails only (`runEmails`): wherever texts need the user (iOS, Messages-app fallback).
 /// - iOS: one composer per call (`sendNextViaComposer`); the user taps Send each time.
-/// It never reports a result the platform didn't report.
+/// It never reports a result the platform or email service didn't report.
 class SendOrchestrator {
   SendOrchestrator({
-    required this.sms, required this.attempts, required this.campaigns, this.settings,
+    required this.sms, required this.attempts, required this.campaigns, this.settings, this.emailSender,
     this.interval = const Duration(milliseconds: 1500),
+    this.emailInterval = const Duration(milliseconds: 500),
     Future<void> Function(Duration)? sleep,
   }) : _sleep = sleep ?? ((d) => Future<void>.delayed(d));
 
@@ -42,6 +49,9 @@ class SendOrchestrator {
   /// Send delay and hourly/daily limits. Without it: [interval] and no limits.
   final SettingsRepository? settings;
   final Duration interval; // throttle between Android sends; avoids carrier burst limits
+  final Duration emailInterval;
+  /// Builds the email sender from the current email settings (null when email is off).
+  final Future<EmailSender?> Function()? emailSender;
   final Future<void> Function(Duration) _sleep;
 
   StreamSubscription<SmsEvent>? _sub;
@@ -75,30 +85,41 @@ class SendOrchestrator {
     await campaigns.setStatus(campaignId, CampaignStatus.cancelled);
   }
 
-  /// Sends a ready/paused campaign's pending recipients (Android). Returns the
-  /// limit that paused it, if a send limit was reached (it then resumes by
+  /// Sends a ready/paused campaign's pending texts (Android) and emails. Returns
+  /// the limit that paused it, if a send limit was reached (it then resumes by
   /// itself at [LimitHit.resumeAt]).
-  Future<LimitHit?> runAndroid(int campaignId, {int? subscriptionId}) async {
+  Future<LimitHit?> runAndroid(int campaignId, {int? subscriptionId}) =>
+      _runAutomatic(campaignId, subscriptionId: subscriptionId);
+
+  /// Sends only the pending emails, where texts need the user (iOS, or Android
+  /// without direct sending). Texts stay pending; the campaign then waits for you.
+  Future<LimitHit?> runEmails(int campaignId) => _runAutomatic(campaignId, emailsOnly: true);
+
+  Future<LimitHit?> _runAutomatic(int campaignId, {int? subscriptionId, bool emailsOnly = false}) async {
     if (_active) throw StateError('A campaign is already being sent.');
     final campaign = await campaigns.get(campaignId);
     if (campaign == null) throw StateError('Campaign not found.');
-    if (campaign.status != CampaignStatus.ready && campaign.status != CampaignStatus.paused) {
+    final startable = {CampaignStatus.ready, CampaignStatus.paused, if (emailsOnly) CampaignStatus.awaitingUserAction};
+    if (!startable.contains(campaign.status)) {
       throw StateError('Campaign is ${campaign.status.name}; it must be confirmed (ready) or paused to send.');
     }
-    final caps = await sms.getCapabilities();
-    if (caps.platform != SmsPlatform.android) throw StateError('runAndroid is Android-only.');
-    if (!caps.canSendDirectly) throw SendBlockedException(caps.blocker, caps.messageForUser);
+    final pending = await campaigns.pendingByChannel(campaignId);
+    final doSms = !emailsOnly && pending.sms > 0;
+    if (doSms) {
+      final caps = await sms.getCapabilities();
+      if (caps.platform != SmsPlatform.android) throw StateError('runAndroid is Android-only.');
+      if (!caps.canSendDirectly) throw SendBlockedException(caps.blocker, caps.messageForUser);
+    }
+    EmailSender? mailer;
+    if (pending.email > 0) {
+      mailer = await emailSender?.call();
+      if (mailer == null) throw EmailNotReadyException('Set up email in Settings › Email first.');
+      await mailer.prepare();
+    }
+    if (!doSms && pending.email == 0) return null;
 
     final cfg = await settings?.load();
-    // Refuse to start (or resume) while a limit still applies.
-    final startHit = await _limitHit(cfg);
-    if (startHit != null) {
-      // Wait for the limit and resume by itself (also when you tapped Resume).
-      await attempts.markRunning(campaignId);
-      await campaigns.pauseForLimit(campaignId, startHit.kind, startHit.resumeAt);
-      return startHit;
-    }
-
+    final emailCfg = await settings?.loadEmail() ?? const EmailSettings();
     _active = true; _stop = false;
     var halted = false;
     LimitHit? hit;
@@ -110,22 +131,28 @@ class SendOrchestrator {
         // background service sends): the database status is the signal.
         final now = await campaigns.get(campaignId);
         if (now == null || now.status != CampaignStatus.running) { stoppedElsewhere = true; break; }
-        final r = await attempts.nextPending(campaignId);
+        final r = await attempts.nextPending(campaignId, channel: doSms ? null : MessageChannel.email);
         if (r == null) break;
-        hit = await _limitHit(cfg);
+        hit = r.isEmail ? await _emailLimitHit(emailCfg) : await _limitHit(cfg);
         if (hit != null) {
-          await campaigns.pauseForLimit(campaignId, hit.kind, hit.resumeAt);
+          await campaigns.pauseForLimit(campaignId, hit.kind, hit.resumeAt, email: hit.email);
           stoppedElsewhere = true; // status set: don't overwrite it below
           break;
         }
         final int attemptId;
         try {
-          attemptId = await attempts.beginAttempt(r.id, 'android');
+          attemptId = await attempts.beginAttempt(r.id, r.isEmail ? 'email' : 'android');
         } on AttemptRefusedException {
           continue; // e.g. cancelled between nextPending and here: never send it
         }
-        // Persist "submitted" BEFORE invoking native code: a crash now yields `unknown`, not a duplicate.
+        // Persist "submitted" BEFORE sending: a crash now yields `unknown`, not a duplicate.
         await attempts.applyResult(attemptId, RecipientStatus.submitted);
+        if (r.isEmail) {
+          halted = !await _sendEmail(mailer!, emailCfg, campaign, r, attemptId);
+          if (halted) break;
+          if (!_stop) await _sleep(emailInterval);
+          continue;
+        }
         final res = await sms.sendMessage(SmsSendRequest(
             campaignRecipientId: r.id, attemptId: attemptId, phoneE164: r.phone,
             body: r.renderedMessage, subscriptionId: subscriptionId ?? campaign.subscriptionId));
@@ -141,10 +168,12 @@ class SendOrchestrator {
         if (!_stop) await _sleep(cfg?.delay ?? interval);
       }
       if (stoppedElsewhere) {
-        // Paused or cancelled by the user: leave the status they chose.
+        // Paused or cancelled by the user, or waiting on a limit: leave that status.
       } else if (_stop || halted) {
         final cur = await campaigns.get(campaignId);
         if (cur?.status == CampaignStatus.running) await campaigns.setStatus(campaignId, CampaignStatus.paused);
+      } else if (emailsOnly && (await campaigns.pendingByChannel(campaignId)).sms > 0) {
+        await campaigns.setStatus(campaignId, CampaignStatus.awaitingUserAction); // the texts are up to you
       } else {
         await attempts.finalizeCampaign(campaignId); // stays running until in-flight callbacks arrive
       }
@@ -152,6 +181,34 @@ class SendOrchestrator {
       _active = false;
     }
     return hit;
+  }
+
+  /// Sends one email row and records the outcome. Returns false when sending
+  /// should stop (the service refused the login or address: every email would fail).
+  Future<bool> _sendEmail(EmailSender mailer, EmailSettings cfg, Campaign c, CampaignRecipient r, int attemptId) async {
+    final body = emailBodies(r.renderedMessage, cfg);
+    final res = await mailer.send(OutgoingEmail(
+      id: 'cr-${r.id}-a$attemptId', campaignId: c.id, toAddress: r.email ?? '', toName: r.name,
+      subject: r.subject ?? c.name, text: body.text, html: body.html,
+    ));
+    if (res.providerId != null) await attempts.setOperationId(attemptId, res.providerId!);
+    final next = switch (res.outcome) {
+      EmailOutcome.sent => RecipientStatus.sent,
+      EmailOutcome.failed => RecipientStatus.failed,
+      EmailOutcome.unknown => RecipientStatus.unknown,
+    };
+    await attempts.applyResult(attemptId, next, errorCode: res.errorCode, errorMessage: res.errorMessage);
+    return !const {'auth', 'not_found', 'gmail_auth'}.contains(res.errorCode);
+  }
+
+  /// The email limit reached right now, if any.
+  Future<LimitHit?> _emailLimitHit(EmailSettings cfg) async {
+    if (cfg.hourlyLimit <= 0 && cfg.dailyLimit <= 0) return null;
+    final now = DateTime.now();
+    final h = checkLimits(
+        sent: await attempts.emailSendTimesSince(now.subtract(const Duration(hours: 24))), now: now,
+        settings: SendSettings(hourlyLimit: cfg.hourlyLimit, dailyLimit: cfg.dailyLimit));
+    return h == null ? null : LimitHit(h.kind, h.resumeAt, email: true);
   }
 
   /// The limit reached right now, if any.
@@ -178,7 +235,7 @@ class SendOrchestrator {
     }
     _active = true;
     try {
-      final r = await attempts.nextPending(campaignId);
+      final r = await attempts.nextPending(campaignId, channel: MessageChannel.sms);
       if (r == null) { await attempts.finalizeCampaign(campaignId); return null; }
       await campaigns.setStatus(campaignId, CampaignStatus.awaitingUserAction);
       final attemptId = await attempts.beginAttempt(r.id, 'ios');
@@ -203,7 +260,7 @@ class SendOrchestrator {
         campaign.status == CampaignStatus.running) {
       throw StateError('Campaign is ${campaign.status.name}; it can\'t be sent from the Messages app now.');
     }
-    final r = await attempts.nextPending(campaignId);
+    final r = await attempts.nextPending(campaignId, channel: MessageChannel.sms);
     if (r == null) {
       await attempts.finalizeCampaign(campaignId);
       return null;
@@ -211,10 +268,10 @@ class SendOrchestrator {
     await campaigns.setStatus(campaignId, CampaignStatus.awaitingUserAction);
     final attemptId = await attempts.beginAttempt(r.id, 'android_manual');
     await attempts.applyResult(attemptId, RecipientStatus.awaitingUserAction);
-    final counts = await campaigns.statusCounts(campaignId);
-    final left = (counts[RecipientStatus.pending] ?? 0);
+    final texts = (await campaigns.recipients(campaignId)).where((x) => !x.isEmail).toList();
+    final left = texts.where((x) => x.status == RecipientStatus.pending).length;
     return ManualSend(attemptId: attemptId, name: r.name, phone: r.phone, body: r.renderedMessage,
-        position: campaign.recipientCount - left, total: campaign.recipientCount);
+        position: texts.length - left, total: texts.length);
   }
 
   /// The user's answer: [sent] true -> `sent` (confirmed by the user, not the

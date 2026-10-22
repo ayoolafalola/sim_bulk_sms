@@ -10,8 +10,9 @@ import 'package:sim_bulk_sms/data/repositories/group_repository.dart';
 import 'package:sim_bulk_sms/features/contacts/import_phone_contacts_screen.dart';
 import 'package:sim_bulk_sms/platform/contacts/phone_contacts_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import '../support/fakes.dart';
 
-class FakePhoneContacts implements PhoneContactsService {
+class FakePhoneContacts extends FakePhoneContactsBase {
   FakePhoneContacts(this.contacts, {this.granted = true});
   final List<PhoneContact> contacts;
   bool granted;

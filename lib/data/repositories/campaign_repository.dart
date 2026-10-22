@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import '../../domain/models/campaign.dart';
+import '../../domain/models/channels.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/campaign_planner.dart';
 import '../../domain/services/send_limits.dart';
@@ -27,6 +28,14 @@ RecipientStatus recipientStatusFromDb(String s) =>
     _recipientToDb.entries.firstWhere((e) => e.value == s, orElse: () => const MapEntry(RecipientStatus.unknown, 'unknown')).key;
 String recipientStatusToDb(RecipientStatus s) => _recipientToDb[s]!;
 
+CampaignRecipient recipientFromRow(Map<String, Object?> r) => CampaignRecipient(
+    id: r['id'] as int, campaignId: r['campaign_id'] as int, contactId: r['contact_id'] as int?,
+    name: r['recipient_name_snapshot'] as String, phone: r['phone_number_snapshot'] as String,
+    renderedMessage: r['rendered_message'] as String,
+    status: recipientStatusFromDb(r['status'] as String), attemptCount: r['attempt_count'] as int,
+    channel: messageChannelFromDb(r['channel'] as String?), email: r['email_snapshot'] as String?,
+    subject: r['rendered_subject'] as String?);
+
 class CampaignRepository {
   CampaignRepository(this._db);
   final Database _db;
@@ -38,11 +47,13 @@ class CampaignRepository {
       createdAt: DateTime.parse(r['created_at'] as String),
       sourceCampaignId: r['source_campaign_id'] as int?, scheduleId: r['schedule_id'] as int?,
       pausedReason: r['paused_reason'] as String?,
-      resumeAt: r['resume_at'] == null ? null : DateTime.parse(r['resume_at'] as String).toLocal());
+      resumeAt: r['resume_at'] == null ? null : DateTime.parse(r['resume_at'] as String).toLocal(),
+      channel: sendChannelFromDb(r['channel'] as String?), subject: r['subject'] as String?);
 
   Future<int> createDraft({
     required String name, required String template, required String platform,
     int? sourceCampaignId, int? scheduleId, Map<String, String> fallbacks = const {},
+    SendChannel channel = SendChannel.sms, String? subject,
   }) {
     final now = _now();
     return _db.insert('campaigns', {
@@ -50,6 +61,7 @@ class CampaignRepository {
       'recipient_count': 0, 'created_at': now, 'updated_at': now,
       'source_campaign_id': sourceCampaignId, 'schedule_id': scheduleId,
       'fallbacks_json': fallbacks.isEmpty ? null : jsonEncode(fallbacks),
+      'channel': sendChannelToDb(channel), 'subject': subject,
     });
   }
 
@@ -92,13 +104,16 @@ class CampaignRepository {
 
   /// Editing the template invalidates rendered messages, so the campaign goes
   /// back to `draft` and must be re-snapshotted before it can be confirmed.
-  Future<void> updateDraft(int id, {required String name, required String template}) =>
+  Future<void> updateDraft(int id,
+          {required String name, required String template, SendChannel? channel, String? subject}) =>
       _db.transaction((txn) async {
         await _assertEditable(txn, id);
         await txn.delete('campaign_recipients', where: 'campaign_id = ?', whereArgs: [id]);
         await txn.update('campaigns', {
           'name': name.trim(), 'message_template': template, 'status': 'draft',
           'recipient_count': 0, 'updated_at': _now(),
+          if (channel != null) 'channel': sendChannelToDb(channel),
+          if (channel != null) 'subject': subject,
         }, where: 'id = ?', whereArgs: [id]);
       });
 
@@ -123,6 +138,8 @@ class CampaignRepository {
             'recipient_name_snapshot': r.name, 'phone_number_snapshot': r.phoneE164,
             'rendered_message': r.renderedMessage, 'status': 'pending', 'attempt_count': 0,
             'created_at': now, 'updated_at': now,
+            'channel': r.channel == MessageChannel.email ? 'email' : 'sms',
+            'email_snapshot': r.email, 'rendered_subject': r.subject,
           });
         }
         await b.commit(noResult: true);
@@ -141,9 +158,10 @@ class CampaignRepository {
       where: "id = ? AND status = 'running'", whereArgs: [id]);
 
   /// Pauses a running campaign at a send limit; it resumes by itself at [resumeAt].
-  Future<void> pauseForLimit(int id, LimitKind kind, DateTime resumeAt) => _db.update('campaigns', {
+  Future<void> pauseForLimit(int id, LimitKind kind, DateTime resumeAt, {bool email = false}) =>
+      _db.update('campaigns', {
         'status': 'paused',
-        'paused_reason': kind == LimitKind.hourly ? 'hourly_limit' : 'daily_limit',
+        'paused_reason': '${email ? 'email_' : ''}${kind == LimitKind.hourly ? 'hourly_limit' : 'daily_limit'}',
         'resume_at': _utcMs(resumeAt),
         'updated_at': _now(),
       }, where: "id = ? AND status = 'running'", whereArgs: [id]);
@@ -194,23 +212,30 @@ class CampaignRepository {
   Future<Set<String>> recentlyTextedNumbers(DateTime since) async => {
         for (final r in await _db.rawQuery(
             "SELECT DISTINCT phone_number_snapshot AS p FROM campaign_recipients "
-            "WHERE status IN ('submitted','sent','delivered') AND updated_at >= ?",
+            "WHERE channel = 'sms' AND status IN ('submitted','sent','delivered') AND updated_at >= ?",
             [since.toUtc().toIso8601String()]))
           r['p'] as String,
       };
 
   Future<List<CampaignRecipient>> recipients(int campaignId) async {
     final rows = await _db.query('campaign_recipients', where: 'campaign_id = ?', whereArgs: [campaignId], orderBy: 'id');
-    return rows.map((r) => CampaignRecipient(
-        id: r['id'] as int, campaignId: campaignId, contactId: r['contact_id'] as int?,
-        name: r['recipient_name_snapshot'] as String, phone: r['phone_number_snapshot'] as String,
-        renderedMessage: r['rendered_message'] as String,
-        status: recipientStatusFromDb(r['status'] as String), attemptCount: r['attempt_count'] as int)).toList();
+    return rows.map(recipientFromRow).toList();
   }
 
-  Future<Map<RecipientStatus, int>> statusCounts(int campaignId) async {
+  /// Pending rows per channel, e.g. to know whether a send needs the SIM, email, or both.
+  Future<({int sms, int email})> pendingByChannel(int campaignId) async {
     final rows = await _db.rawQuery(
-        'SELECT status, COUNT(*) AS n FROM campaign_recipients WHERE campaign_id = ? GROUP BY status', [campaignId]);
+        "SELECT channel, COUNT(*) AS n FROM campaign_recipients WHERE campaign_id = ? AND status = 'pending' "
+        'GROUP BY channel', [campaignId]);
+    int n(String ch) => rows.where((r) => r['channel'] == ch).fold(0, (a, r) => a + (r['n'] as int));
+    return (sms: n('sms'), email: n('email'));
+  }
+
+  Future<Map<RecipientStatus, int>> statusCounts(int campaignId, {MessageChannel? channel}) async {
+    final rows = await _db.rawQuery(
+        'SELECT status, COUNT(*) AS n FROM campaign_recipients WHERE campaign_id = ?'
+        '${channel == null ? '' : ' AND channel = ?'} GROUP BY status',
+        [campaignId, if (channel != null) channel == MessageChannel.email ? 'email' : 'sms']);
     return {for (final r in rows) recipientStatusFromDb(r['status'] as String): r['n'] as int};
   }
 }

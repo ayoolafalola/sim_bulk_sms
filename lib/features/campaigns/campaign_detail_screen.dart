@@ -7,6 +7,7 @@ import '../../app/providers.dart';
 import '../../app/sending_providers.dart';
 import '../../data/repositories/attempt_repository.dart';
 import '../../domain/models/campaign.dart';
+import '../../platform/email/email_sender.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/campaign_planner.dart';
 import '../../platform/sms/sms_capability_service.dart';
@@ -74,9 +75,63 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
       ) ==
       true;
 
+  /// Sends the pending emails by themselves (texts stay for you). Returns false if it couldn't start.
+  Future<bool> _sendEmailsHere(int count) async {
+    setState(() => _busy = true);
+    _snack('Sending $count ${count == 1 ? 'email' : 'emails'}…');
+    try {
+      final hit = await ref.read(sendOrchestratorProvider).runEmails(_id);
+      if (hit != null) {
+        _snack('${limitLabel(hit.kind, email: true)} reached. Emails resume at ${formatWhen(hit.resumeAt)}.');
+      }
+      return true;
+    } on EmailNotReadyException catch (e) {
+      _snack(e.message);
+      return false;
+    } catch (e) {
+      _snack('$e');
+      return false;
+    } finally {
+      if (mounted) setState(() => _busy = false);
+      _refresh();
+    }
+  }
+
   Future<void> _send(Campaign c, SmsCapabilities caps, List<CampaignRecipient> recipients) async {
-    final pending = recipients.where((r) => r.status == RecipientStatus.pending).toList();
+    final allPending = recipients.where((r) => r.status == RecipientStatus.pending).toList();
+    final pending = allPending.where((r) => !r.isEmail).toList();
+    final emails = allPending.where((r) => r.isEmail).length;
     final orch = ref.read(sendOrchestratorProvider);
+    final cfg = await ref.read(settingsRepositoryProvider).loadEmail();
+    if (emails > 0) {
+      if (!cfg.ready) {
+        _snack('Set up email first: Settings › Email.');
+        if (mounted) context.push('/settings/email');
+        return;
+      }
+    }
+    final directSms = caps.platform == SmsPlatform.android && caps.canSendDirectly;
+    if (emails > 0 && (pending.isEmpty || !directSms)) {
+      // Emails go by themselves; texts (if any) then follow the usual flow below.
+      if (pending.isEmpty &&
+          !await _confirm('Send $emails ${emails == 1 ? 'email' : 'emails'}?',
+              'They go out through ${cfg.providerLabel} from ${cfg.senderAddress}.',
+              'Send')) {
+        return;
+      }
+      final bg = ref.read(backgroundSendServiceProvider);
+      if (pending.isEmpty && bg != null) {
+        if (!await bg.startSend(_id)) {
+          _snack('Could not start sending. Please try again.');
+          return;
+        }
+        _snack('Sending. You can leave the app; progress shows in a notification.');
+        _watchUntil = DateTime.now().add(const Duration(seconds: 15));
+        _refresh();
+        return;
+      }
+      if (!await _sendEmailsHere(emails) || pending.isEmpty) return;
+    }
     if (caps.platform == SmsPlatform.ios && caps.usesComposerHandoff) {
       if (c.status == CampaignStatus.ready &&
           !await _confirm('Start sending?',
@@ -118,7 +173,8 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
       if (!mounted) return;
       if (!await _confirm(
           c.status == CampaignStatus.paused ? 'Resume sending?' : 'Send now?',
-          'Send ${pending.length} messages (about ${est.totalSegments} SMS segments) through your SIM. '
+          'Send ${pending.length} messages (about ${est.totalSegments} SMS segments) through your SIM'
+              '${emails > 0 ? ' and $emails ${emails == 1 ? 'email' : 'emails'}' : ''}. '
               '$timing\n\nYour carrier charges apply. You can pause at any time.',
           'Send')) {
         return;
@@ -392,7 +448,14 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: AppColors.of(context).surface, borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: AppColors.of(context).line)),
-              child: Text(c.messageTemplate, style: const TextStyle(height: 1.45)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                if (c.channel.usesEmail && (c.subject ?? '').isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text('Subject: ${c.subject}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                Text(c.messageTemplate, style: const TextStyle(height: 1.45)),
+              ]),
             ),
             if (c.sourceCampaignId != null)
               Align(
@@ -426,17 +489,19 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
         if (cap == null) {
           note = caps.isLoading ? null : 'Messaging is unavailable on this device.';
         } else if (hasPending) {
-          final handoff = !cap.canSendDirectly && cap.usesComposerHandoff; // iOS, or Android fallback
-          final canTry = cap.canSendDirectly || cap.usesComposerHandoff;
+          final textsPending = list.any((r) => r.status == RecipientStatus.pending && !r.isEmail);
+          final handoff = textsPending && !cap.canSendDirectly && cap.usesComposerHandoff; // iOS, or Android fallback
+          final canTry = cap.canSendDirectly || cap.usesComposerHandoff || !textsPending;
           if (!canTry || (handoff && cap.platform == SmsPlatform.android)) {
             note = cap.messageForUser ?? 'Sending is not available on this device.';
           }
-          final done = list.where((r) => r.status != RecipientStatus.pending).length;
+          final texts = list.where((r) => !r.isEmail).toList();
+          final done = texts.where((r) => r.status != RecipientStatus.pending).length;
           buttons.add(FilledButton.icon(
             onPressed: (!canTry || _busy) ? null : () => _send(c, cap, list),
             icon: const Icon(Icons.send),
             label: Text(handoff
-                ? 'Open next message (${done + 1} of ${list.length})'
+                ? 'Open next message (${done + 1} of ${texts.length})'
                 : c.status == CampaignStatus.paused ? 'Resume' : 'Send'),
           ));
           if (cap.platform == SmsPlatform.android &&
@@ -489,13 +554,23 @@ class StatusCounts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final counts = <RecipientStatus, int>{};
-    for (final r in recipients) {
-      counts[r.status] = (counts[r.status] ?? 0) + 1;
+    final mixed = recipients.any((r) => r.isEmail) && recipients.any((r) => !r.isEmail);
+    Widget chips(Iterable<CampaignRecipient> rs, {String? prefix}) {
+      final counts = <RecipientStatus, int>{};
+      for (final r in rs) {
+        counts[r.status] = (counts[r.status] ?? 0) + 1;
+      }
+      return Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+        if (prefix != null) Text(prefix, style: const TextStyle(fontWeight: FontWeight.w700)),
+        for (final s in RecipientStatus.values)
+          if ((counts[s] ?? 0) > 0) Chip(label: Text('${recipientStatusLabel(s)}: ${counts[s]}')),
+      ]);
     }
-    return Wrap(spacing: 8, runSpacing: 4, children: [
-      for (final s in RecipientStatus.values)
-        if ((counts[s] ?? 0) > 0) Chip(label: Text('${recipientStatusLabel(s)}: ${counts[s]}')),
+    if (!mixed) return chips(recipients);
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      chips(recipients.where((r) => !r.isEmail), prefix: 'SMS'),
+      const SizedBox(height: 6),
+      chips(recipients.where((r) => r.isEmail), prefix: 'Email'),
     ]);
   }
 }
@@ -518,13 +593,16 @@ class _RecipientTile extends StatelessWidget {
     ];
     return ListTile(
       contentPadding: EdgeInsets.zero,
+      leading: Icon(r.isEmail ? Icons.email_outlined : Icons.sms_outlined, size: 20),
+      minLeadingWidth: 20,
       title: Text(r.name),
-      subtitle: Text(r.phone),
+      subtitle: Text(r.address),
       onTap: () => showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text(r.name),
-          content: Text('${r.renderedMessage}\n\nStatus: ${recipientStatusLabel(r.status)}'
+          content: Text('${r.isEmail ? 'Subject: ${r.subject ?? ''}\n\n' : ''}${r.renderedMessage}'
+              '\n\nStatus: ${recipientStatusLabel(r.status)}'
               '${r.attemptCount > 0 ? ' · attempts: ${r.attemptCount}' : ''}'),
           actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close'))],
         ),

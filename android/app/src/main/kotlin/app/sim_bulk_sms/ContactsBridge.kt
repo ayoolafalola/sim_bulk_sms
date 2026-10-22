@@ -12,8 +12,9 @@ import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
 /**
- * Read-only access to the phone's contacts: display name + phone number only.
- * One entry per phone number. Nothing is written to the system contacts.
+ * Read-only access to the phone's contacts: the full sync snapshot ([ContactsSync]),
+ * a simple name + number list, and opening a contact in the phone's Contacts app to edit.
+ * Nothing is written to the system contacts by this app.
  */
 class ContactsBridge(private val activity: Activity) : MethodChannel.MethodCallHandler {
     private val main = Handler(Looper.getMainLooper())
@@ -24,9 +25,44 @@ class ContactsBridge(private val activity: Activity) : MethodChannel.MethodCallH
             "hasPermission" -> result.success(granted())
             "requestPermission" -> requestPermission(result)
             "getPhoneContacts" -> load(result)
+            "syncContacts" -> {
+                if (!granted()) { result.error("permission_denied", "READ_CONTACTS not granted", null); return }
+                val since = call.argument<Number>("since")?.toLong() ?: 0L
+                Thread {
+                    try { val snap = ContactsSync.snapshot(activity, since); main.post { result.success(snap) } }
+                    catch (e: Exception) { main.post { result.error("read_failed", e.javaClass.simpleName, null) } }
+                }.start()
+            }
+            "editContact" -> {
+                // Edits happen in the phone's Contacts app (no write permission needed); sync brings them back.
+                val id = call.argument<Number>("contactId")?.toLong() ?: -1L
+                val lookup = call.argument<String>("lookupKey")
+                val uri = if (lookup != null) ContactsContract.Contacts.getLookupUri(id, lookup)
+                          else android.content.ContentUris.withAppendedId(ContactsContract.Contacts.CONTENT_URI, id)
+                try {
+                    activity.startActivity(android.content.Intent(android.content.Intent.ACTION_EDIT, uri)
+                        .putExtra("finishActivityOnSaveCompleted", true))
+                    result.success(true)
+                } catch (e: Exception) { result.success(false) }
+            }
             else -> result.notImplemented()
         }
     }
+
+    /** Tells the app screen the phone's contacts changed (it then syncs the changes). */
+    private val observer = object : android.database.ContentObserver(main) {
+        override fun onChange(selfChange: Boolean) = MessagesEvents.emit(mapOf("type" to "contacts"))
+    }
+
+    init { watch() }
+
+    private fun watch() {
+        if (granted()) runCatching {
+            activity.contentResolver.registerContentObserver(ContactsContract.Contacts.CONTENT_URI, true, observer)
+        }
+    }
+
+    fun dispose() = runCatching { activity.contentResolver.unregisterContentObserver(observer) }
 
     private fun granted() = ContextCompat.checkSelfPermission(activity, Manifest.permission.READ_CONTACTS) ==
         PackageManager.PERMISSION_GRANTED
@@ -42,6 +78,7 @@ class ContactsBridge(private val activity: Activity) : MethodChannel.MethodCallH
     fun onPermissionsResult(requestCode: Int) {
         if (requestCode != REQUEST_CODE) return
         pendingPermissionResult?.success(granted()); pendingPermissionResult = null
+        dispose(); watch()
     }
 
     private fun load(result: MethodChannel.Result) {

@@ -11,6 +11,8 @@ import '../data/repositories/settings_repository.dart';
 import '../features/campaigns/campaign_composer.dart';
 import '../features/scheduling/schedule_runner.dart';
 import '../features/sms_sending/send_orchestrator.dart';
+import '../platform/email/email_senders.dart';
+import '../platform/email/google_gmail_auth.dart';
 import '../platform/sms/android_sms_service.dart';
 import 'background_host.dart';
 import 'background_job.dart';
@@ -30,8 +32,12 @@ Future<void> backgroundMain() async {
     final campaigns = CampaignRepository(db);
     final schedules = ScheduleRepository(db);
     final sms = AndroidSmsService();
-    final orchestrator =
-        SendOrchestrator(sms: sms, attempts: attempts, campaigns: campaigns, settings: SettingsRepository(db))..start();
+    final settings = SettingsRepository(db);
+    final gmail = GoogleGmailAuth();
+    final orchestrator = SendOrchestrator(
+      sms: sms, attempts: attempts, campaigns: campaigns, settings: settings,
+      emailSender: () async => emailSenderFor(await settings.loadEmail(), gmail: gmail),
+    )..start();
     final composer = CampaignComposer(contacts: ContactRepository(db), groups: GroupRepository(db), campaigns: campaigns);
     await BackgroundJob(
       host: host, sms: sms, orchestrator: orchestrator, campaigns: campaigns, schedules: schedules,

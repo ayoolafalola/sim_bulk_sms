@@ -1,4 +1,5 @@
 import 'package:sqflite/sqflite.dart';
+import '../../domain/models/email_settings.dart';
 import '../../domain/models/send_settings.dart';
 
 /// Key/value app settings in the database, so the background service sees the
@@ -47,4 +48,20 @@ class SettingsRepository {
 
   Future<void> setSimForThread(int threadId, int subId) => _db.insert(
       'app_settings', {'key': 'sim_thread_$threadId', 'value': '$subId'}, conflictAlgorithm: ConflictAlgorithm.replace);
+
+  Future<String?> _get(String key) async =>
+      (await _db.query('app_settings', where: 'key = ?', whereArgs: [key])).firstOrNull?['value'] as String?;
+  Future<void> _set(String key, String value) =>
+      _db.insert('app_settings', {'key': key, 'value': value}, conflictAlgorithm: ConflictAlgorithm.replace);
+
+  /// Phone-contacts sync: true (on), false (declined / turned off), null (not asked yet).
+  Future<bool?> contactsSync() async => switch (await _get('contacts_sync')) { 'on' => true, 'off' => false, _ => null };
+  Future<void> setContactsSync(bool on) => _set('contacts_sync', on ? 'on' : 'off');
+
+  /// Phone clock (ms) of the last contacts sync; 0 = never (next sync reads everything).
+  Future<int> contactsSyncedAt() async => int.tryParse(await _get('contacts_sync_at') ?? '') ?? 0;
+  Future<void> setContactsSyncedAt(int ms) => _set('contacts_sync_at', '$ms');
+
+  Future<EmailSettings> loadEmail() async => EmailSettings.fromJson(await _get('email_settings'));
+  Future<void> saveEmail(EmailSettings s) => _set('email_settings', s.toJson());
 }
