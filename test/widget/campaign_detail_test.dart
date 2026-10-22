@@ -55,7 +55,7 @@ void main() {
   testWidgets('iOS hands off one message at a time', (t) async {
     await t.pumpWidget(host(CampaignStatus.ready, pending, ios));
     await t.pumpAndSettle();
-    expect(find.text('Open next message'), findsOneWidget);
+    expect(find.text('Open next message (1 of 2)'), findsOneWidget);
   });
 
   testWidgets('running campaign offers Pause and Cancel, not Send or Delete', (t) async {

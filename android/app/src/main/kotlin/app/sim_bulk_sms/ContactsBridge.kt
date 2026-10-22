@@ -34,6 +34,7 @@ class ContactsBridge(private val activity: Activity) : MethodChannel.MethodCallH
     private fun requestPermission(result: MethodChannel.Result) {
         if (granted()) { result.success(true); return }
         pendingPermissionResult = result
+        PermissionMemory.markAsked(activity, Manifest.permission.READ_CONTACTS)
         ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.READ_CONTACTS), REQUEST_CODE)
     }
 

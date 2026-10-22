@@ -4,7 +4,7 @@ class Campaign {
   const Campaign({
     required this.id, required this.name, required this.messageTemplate, required this.status,
     required this.platform, this.subscriptionId, required this.recipientCount, required this.createdAt,
-    this.sourceCampaignId, this.scheduleId,
+    this.sourceCampaignId, this.scheduleId, this.pausedReason, this.resumeAt,
   });
   final int id;
   final String name, messageTemplate, platform;
@@ -16,6 +16,10 @@ class Campaign {
   final int? sourceCampaignId;
   /// Set on a scheduled run: the schedule that created it.
   final int? scheduleId;
+  /// Why it is paused: 'user', 'hourly_limit' or 'daily_limit' (null otherwise).
+  final String? pausedReason;
+  /// When a limit-paused campaign resumes by itself (local time).
+  final DateTime? resumeAt;
 }
 
 /// Who a campaign targets: whole groups and/or individual contacts.

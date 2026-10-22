@@ -138,8 +138,24 @@ class AttemptRepository {
       });
 
   Future<void> markRunning(int campaignId) => _db.rawUpdate(
-      "UPDATE campaigns SET status='running', started_at=COALESCE(started_at, ?), updated_at=? WHERE id=?",
+      "UPDATE campaigns SET status='running', started_at=COALESCE(started_at, ?), paused_reason=NULL, resume_at=NULL, "
+      "updated_at=? WHERE id=?",
       [_now(), _now(), campaignId]);
+
+  /// When this phone handed messages to the carrier since [since] (Android
+  /// attempts that got past `prepared`). Used for the hourly/daily limits.
+  Future<List<DateTime>> sendTimesSince(DateTime since) async {
+    // Text comparison narrows the rows; the exact cut is done on parsed times
+    // (stored timestamps don't all have the same sub-second precision).
+    final rows = await _db.query('send_attempts', columns: ['initiated_at'],
+        where: "platform = 'android' AND status <> 'prepared' AND initiated_at >= ?",
+        whereArgs: [since.subtract(const Duration(minutes: 1)).toUtc().toIso8601String()], orderBy: 'initiated_at');
+    return [
+      for (final r in rows)
+        if (!DateTime.parse(r['initiated_at'] as String).isBefore(since))
+          DateTime.parse(r['initiated_at'] as String).toLocal(),
+    ];
+  }
 
   Future<int> cancelPending(int campaignId) => _db.update('campaign_recipients',
       {'status': 'cancelled', 'updated_at': _now()},

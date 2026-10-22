@@ -8,6 +8,7 @@ import '../../platform/sms/sms_capability_service.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/schedule_calculator.dart';
 import '../campaigns/campaign_labels.dart';
+import '../setup/setup_status.dart';
 import '../common/page_layout.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -17,15 +18,22 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final stats = ref.watch(dashboardStatsProvider);
     final caps = ref.watch(capabilitiesProvider);
+    final setup = ref.watch(setupStatusProvider).valueOrNull;
+    final setupMissing = setup != null && !setup.complete;
+    // Fresh install: run the first-launch setup.
+    ref.listen(onboardingDoneProvider, (_, next) {
+      if (next.valueOrNull == false) context.go('/welcome');
+    });
     return Scaffold(
       appBar: AppBar(title: const Text('SIM Bulk SMS'), actions: [
         IconButton(
-            tooltip: 'Background sending',
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.go('/settings/background')),
+            tooltip: 'Settings',
+            icon: Badge(isLabelVisible: setupMissing, child: const Icon(Icons.settings_outlined)),
+            onPressed: () => context.go('/settings')),
       ]),
       // Generous bottom room so the last buttons are never under the navigation bar.
       body: ListView(padding: pagePadding(context, extra: 96), children: [
+        if (setupMissing) _SetupBanner(missing: setup.missingRequired),
         caps.when(
           data: (c) => _CapabilityCard(c),
           loading: () => const LinearProgressIndicator(),
@@ -158,18 +166,6 @@ class _ScheduledList extends ConsumerWidget {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       const SizedBox(height: 16),
       Text('Scheduled', style: Theme.of(context).textTheme.titleMedium),
-      if (ref.watch(backgroundStatusProvider).valueOrNull case final st? when !st.ready)
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.warning_amber),
-            title: const Text('Background sending is not fully set up'),
-            subtitle: Text(st.exactAlarms
-                ? 'The phone may delay or block scheduled runs.'
-                : 'Scheduled runs only start while the app is open.'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/settings/background'),
-          ),
-        ),
       for (final i in items)
         ListTile(
           contentPadding: EdgeInsets.zero,
@@ -185,5 +181,44 @@ class _ScheduledList extends ConsumerWidget {
           onTap: () => context.go('/campaigns/${i.schedule.campaignId}'),
         ),
     ]);
+  }
+}
+
+/// Shown on every visit while a required permission/setting is off. Not dismissible.
+class _SetupBanner extends StatelessWidget {
+  const _SetupBanner({required this.missing});
+  final List<SetupItem> missing;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Card(
+      color: scheme.errorContainer,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Icon(Icons.warning_amber, color: scheme.onErrorContainer),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${missing.length} required ${missing.length == 1 ? 'permission is' : 'permissions are'} off',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(color: scheme.onErrorContainer),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          for (final i in missing)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text('• ${setupInfo[i]!.title}: ${setupInfo[i]!.ifMissing}',
+                  style: TextStyle(color: scheme.onErrorContainer)),
+            ),
+          const SizedBox(height: 4),
+          FilledButton(onPressed: () => context.push('/settings/setup'), child: const Text('Fix now')),
+        ]),
+      ),
+    );
   }
 }

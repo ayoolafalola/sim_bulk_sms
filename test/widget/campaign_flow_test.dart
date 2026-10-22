@@ -6,6 +6,7 @@ import 'package:sim_bulk_sms/app/capability_providers.dart';
 import 'package:sim_bulk_sms/app/providers.dart';
 import 'package:sim_bulk_sms/app/router.dart';
 import 'package:sim_bulk_sms/data/database/app_database.dart';
+import 'package:sim_bulk_sms/data/repositories/settings_repository.dart';
 import 'package:sim_bulk_sms/data/repositories/campaign_repository.dart';
 import 'package:sim_bulk_sms/data/repositories/contact_repository.dart';
 import 'package:sim_bulk_sms/data/repositories/group_repository.dart';
@@ -22,6 +23,7 @@ void main() {
     late Database db;
     await t.runAsync(() async {
       db = await openAppDatabase(databaseFactoryFfi, inMemoryDatabasePath);
+      await SettingsRepository(db).setFlag('onboarding_done', true); // past first-launch setup
       final contacts = ContactRepository(db);
       final g = await GroupRepository(db).create('Volunteers');
       await GroupRepository(db).addContacts(g, [
@@ -56,11 +58,11 @@ void main() {
     await t.enterText(find.widgetWithText(TextField, 'Campaign name'), 'Launch');
     await t.enterText(find.widgetWithText(TextField, 'Message'), 'Hi {first_name}, see you Saturday');
     await t.tap(find.text('Volunteers (2)'));
-    await settle(until: find.text('2 recipients'));
+    await settle(until: find.text('2 recipients', skipOffstage: false));
 
-    expect(find.text('2 recipients'), findsOneWidget);
-    expect(find.text('Hi Ada, see you Saturday'), findsOneWidget);
-    expect(find.textContaining('have not confirmed consent'), findsOneWidget);
+    expect(find.text('2 recipients', skipOffstage: false), findsOneWidget);
+    expect(find.text('Hi Ada, see you Saturday', skipOffstage: false), findsOneWidget);
+    expect(find.textContaining('have not confirmed consent', skipOffstage: false), findsOneWidget);
 
     await t.tap(find.text('Save and review'));
     await settle(until: find.text('Waiting: 2'));

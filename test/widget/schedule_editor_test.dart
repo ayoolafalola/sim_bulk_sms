@@ -5,6 +5,7 @@ import 'package:sim_bulk_sms/app/capability_providers.dart';
 import 'package:sim_bulk_sms/app/providers.dart';
 import 'package:sim_bulk_sms/app/router.dart';
 import 'package:sim_bulk_sms/data/database/app_database.dart';
+import 'package:sim_bulk_sms/data/repositories/settings_repository.dart';
 import 'package:sim_bulk_sms/data/repositories/campaign_repository.dart';
 import 'package:sim_bulk_sms/data/repositories/contact_repository.dart';
 import 'package:sim_bulk_sms/data/repositories/group_repository.dart';
@@ -28,6 +29,7 @@ void main() {
     late int campaignId;
     await t.runAsync(() async {
       db = await openAppDatabase(databaseFactoryFfi, inMemoryDatabasePath);
+      await SettingsRepository(db).setFlag('onboarding_done', true); // past first-launch setup
       final contacts = ContactRepository(db), groups = GroupRepository(db), campaigns = CampaignRepository(db);
       final g = await groups.create('Church');
       await groups.addContacts(g, [
@@ -90,6 +92,7 @@ void main() {
     late int campaignId;
     await t.runAsync(() async {
       db = await openAppDatabase(databaseFactoryFfi, inMemoryDatabasePath);
+      await SettingsRepository(db).setFlag('onboarding_done', true); // past first-launch setup
       final campaigns = CampaignRepository(db);
       campaignId = await campaigns.createDraft(name: 'Done', template: 'x', platform: 'android');
       await campaigns.setStatus(campaignId, CampaignStatus.completed);

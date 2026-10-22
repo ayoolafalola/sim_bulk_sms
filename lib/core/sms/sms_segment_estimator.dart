@@ -20,6 +20,40 @@ class SmsSegmentEstimator {
   static final Set<int> _basicSet = _basic.runes.toSet();
   static final Set<int> _extSet = _extension.runes.toSet();
 
+  /// Whether [rune] fits the GSM-7 alphabet (basic or extension table).
+  static bool isGsm(int rune) => rune != 0x1B && (_basicSet.contains(rune) || _extSet.contains(rune));
+
+  /// The distinct characters that force the shorter Unicode (UCS-2) SMS.
+  static List<String> nonGsmCharacters(String text) {
+    final out = <String>[];
+    for (final r in text.runes) {
+      if (!isGsm(r)) {
+        final c = String.fromCharCode(r);
+        if (!out.contains(c)) out.add(c);
+      }
+    }
+    return out;
+  }
+
+  /// Look-alike swaps that phone keyboards often insert automatically
+  /// (smart quotes, long dashes, ellipsis, non-breaking space).
+  static const plainReplacements = {
+    '\u2018': "'", '\u2019': "'", '\u201A': "'", '\u2032': "'",
+    '\u201C': '"', '\u201D': '"', '\u201E': '"', '\u2033': '"',
+    '\u2013': '-', '\u2014': '-', '\u2212': '-',
+    '\u2026': '...', '\u00A0': ' ', '\u202F': ' ',
+  };
+
+  /// [text] with [plainReplacements] applied (other characters untouched).
+  static String toPlainCharacters(String text) {
+    final b = StringBuffer();
+    for (final r in text.runes) {
+      final c = String.fromCharCode(r);
+      b.write(plainReplacements[c] ?? c);
+    }
+    return b.toString();
+  }
+
   static SmsEstimate estimate(String text) {
     var septets = 0;
     var gsm = true;

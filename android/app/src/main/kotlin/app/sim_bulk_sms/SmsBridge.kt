@@ -85,6 +85,7 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
                 "activeSubscriptions" to subscriptions().size))
             "requestPermissions" -> requestPermissions(result)
             "getSubscriptions" -> result.success(subscriptions())
+            "openComposer" -> openComposer(call, result)
             "sendTextMessage", "sendMultipartTextMessage" -> send(call, result)
             else -> result.notImplemented()
         }
@@ -97,6 +98,7 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
         if (needed.isEmpty()) { result.success(true); return }
         val a = activity ?: run { result.success(false); return } // background: can't prompt
         pendingPermissionResult = result
+        PermissionMemory.markAsked(a, *needed.toTypedArray())
         ActivityCompat.requestPermissions(a, needed.toTypedArray(), 7421)
     }
 
@@ -161,6 +163,24 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
             ops.remove(attemptId); result.error("invalid_argument", "Invalid recipient or message", null)
         } catch (e: Exception) {
             ops.remove(attemptId); result.error("send_exception", e.javaClass.simpleName, null)
+        }
+    }
+
+    /**
+     * Fallback when direct sending isn't allowed: opens the default Messages app
+     * with the number and text filled in. The user taps Send there; Android does
+     * not report whether they did, so the app asks afterwards. Returns false if
+     * no Messages app can handle it. Needs no SMS permission.
+     */
+    private fun openComposer(call: MethodCall, result: MethodChannel.Result) {
+        val a = activity ?: run { result.success(false); return }
+        val phone = call.argument<String>("phone") ?: run { result.success(false); return }
+        val i = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone)))
+            .putExtra("sms_body", call.argument<String>("body") ?: "")
+        try {
+            a.startActivity(i); result.success(true)
+        } catch (e: ActivityNotFoundException) {
+            result.success(false)
         }
     }
 

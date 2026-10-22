@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/providers.dart';
+import '../../app/sending_providers.dart';
 import '../../app/settings_providers.dart';
 import '../../platform/contacts/phone_contacts_service.dart';
 import '../groups/groups_screen.dart';
@@ -161,8 +162,13 @@ class _ImportPhoneContactsScreenState extends ConsumerState<ImportPhoneContactsS
       body: switch (_phase) {
         _Phase.loading => const Center(child: CircularProgressIndicator()),
         _Phase.denied => _Message(
-            'Contacts access is needed to read names and numbers from your phone.',
-            action: FilledButton(onPressed: _load, child: const Text('Allow access'))),
+            'Contacts access is needed to read names and numbers from your phone.\n'
+            'If you refused it before, turn it on in app settings › Permissions.',
+            action: Wrap(spacing: 8, alignment: WrapAlignment.center, children: [
+              FilledButton(onPressed: _load, child: const Text('Allow access')),
+              if (ref.watch(backgroundSendServiceProvider) case final bg?)
+                OutlinedButton(onPressed: bg.openAppSettings, child: const Text('Open app settings')),
+            ])),
         _Phase.error => _Message('Could not read your phone contacts.\n$_error',
             action: FilledButton(onPressed: _load, child: const Text('Try again'))),
         _Phase.ready => Column(children: [

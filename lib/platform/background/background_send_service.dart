@@ -5,8 +5,15 @@ class BackgroundStatus {
   const BackgroundStatus({
     required this.notifications, required this.exactAlarms,
     required this.batteryUnrestricted, required this.serviceRunning,
+    this.telephony = true, this.sms = true, this.smsPermanentlyDenied = false,
+    this.contacts = true, this.contactsPermanentlyDenied = false, this.notificationsPermanentlyDenied = false,
   });
   final bool notifications, exactAlarms, batteryUnrestricted, serviceRunning;
+  /// The phone can send SMS at all (false on Wi-Fi-only tablets).
+  final bool telephony;
+  final bool sms, contacts;
+  /// Refused for good: Android no longer shows the prompt; only app settings can turn it on.
+  final bool smsPermanentlyDenied, contactsPermanentlyDenied, notificationsPermanentlyDenied;
   bool get ready => notifications && exactAlarms && batteryUnrestricted;
 }
 
@@ -47,6 +54,9 @@ class NativeBackgroundSendService implements BackgroundSendService {
     return BackgroundStatus(
       notifications: m['notifications'] == true, exactAlarms: m['exactAlarms'] == true,
       batteryUnrestricted: m['batteryUnrestricted'] == true, serviceRunning: m['serviceRunning'] == true,
+      telephony: m['telephony'] != false, sms: m['sms'] == true, smsPermanentlyDenied: m['smsPermanentlyDenied'] == true,
+      contacts: m['contacts'] == true, contactsPermanentlyDenied: m['contactsPermanentlyDenied'] == true,
+      notificationsPermanentlyDenied: m['notificationsPermanentlyDenied'] == true,
     );
   }
 

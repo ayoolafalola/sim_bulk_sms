@@ -12,3 +12,7 @@
 - The background service waits 2 minutes after the last message for delivery reports; reports arriving later are not recorded (the message stays `sent`). Messages still `submitted` when it stops become `unknown` the next time sending starts.
 - Google Play: the special-use foreground service and exact alarms need Play Console declarations before a Play release.
 - On iOS a scheduled run is only prepared; you must open it and tap Send for each message.
+- Send limits count messages, not SMS parts (a 2-part message counts once), and only Android direct sends from this app; messages sent from other apps on the same SIM aren't counted.
+- Send limits don't apply on iPhone, where every message is sent by hand.
+- Messages-app fallback: Android doesn't report whether you tapped Send in the Messages app, so those messages are recorded as sent on your confirmation. They aren't counted towards the send limits and get no delivery reports.
+- "Refused for good" detection relies on Android's rationale flag after the app has asked at least once; some phones (and permissions turned off from system settings) may show the normal Allow button first, which then does nothing — use App setup › Open app settings.

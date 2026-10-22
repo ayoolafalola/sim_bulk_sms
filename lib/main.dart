@@ -7,7 +7,9 @@ import 'app/app.dart';
 import 'app/providers.dart';
 import 'app/startup_error_app.dart';
 import 'data/database/app_database.dart';
+import 'app/settings_providers.dart';
 import 'data/repositories/attempt_repository.dart';
+import 'data/repositories/settings_repository.dart';
 import 'platform/background/background_send_service.dart';
 
 // Keeps the background service's Dart entry point compiled into the app.
@@ -29,8 +31,12 @@ Future<void> main() async {
     // outcome: mark it `unknown` and pause the campaign. Never auto-resend.
     // Skipped while the Android send service is running: it owns those sends.
     if (!await _sendServiceRunning()) await AttemptRepository(db).recoverInterrupted();
+    final settings = await SettingsRepository(db).load();
     runApp(ProviderScope(
-      overrides: [databaseProvider.overrideWithValue(db)],
+      overrides: [
+        databaseProvider.overrideWithValue(db),
+        defaultRegionProvider.overrideWith((ref) => settings.defaultRegion),
+      ],
       child: const SimBulkSmsApp(),
     ));
   } catch (e, st) {

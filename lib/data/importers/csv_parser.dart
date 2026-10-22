@@ -10,7 +10,7 @@ class CsvFormatException implements Exception {
 /// Blank lines are dropped. Throws [CsvFormatException] on an unterminated quote.
 List<List<String>> parseCsv(String text) {
   if (text.startsWith('\uFEFF')) text = text.substring(1);
-  final delim = _detectDelimiter(text);
+  final delim = detectDelimiter(text);
   final rows = <List<String>>[];
   var row = <String>[];
   final field = StringBuffer();
@@ -46,7 +46,8 @@ List<List<String>> parseCsv(String text) {
   return rows;
 }
 
-String _detectDelimiter(String text) {
+/// The separator used by the file: comma, semicolon or tab (from its first line).
+String detectDelimiter(String text) {
   final firstLine = text.split(RegExp(r'\r?\n')).firstWhere((l) => l.trim().isNotEmpty, orElse: () => '');
   final counts = {',': 0, ';': 0, '\t': 0};
   var q = false;

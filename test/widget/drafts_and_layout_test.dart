@@ -5,6 +5,7 @@ import 'package:sim_bulk_sms/app/capability_providers.dart';
 import 'package:sim_bulk_sms/app/providers.dart';
 import 'package:sim_bulk_sms/app/router.dart';
 import 'package:sim_bulk_sms/data/database/app_database.dart';
+import 'package:sim_bulk_sms/data/repositories/settings_repository.dart';
 import 'package:sim_bulk_sms/data/repositories/campaign_repository.dart';
 import 'package:sim_bulk_sms/data/repositories/contact_repository.dart';
 import 'package:sim_bulk_sms/data/repositories/group_repository.dart';
@@ -27,6 +28,7 @@ void main() {
   Future<void> openDb(WidgetTester t) async {
     await t.runAsync(() async {
       db = await openAppDatabase(databaseFactoryFfi, inMemoryDatabasePath);
+      await SettingsRepository(db).setFlag('onboarding_done', true); // past first-launch setup
       final contacts = ContactRepository(db);
       groupId = await GroupRepository(db).create('Church');
       await GroupRepository(db).addContacts(groupId, [

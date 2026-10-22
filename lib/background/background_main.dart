@@ -7,6 +7,7 @@ import '../data/repositories/campaign_repository.dart';
 import '../data/repositories/contact_repository.dart';
 import '../data/repositories/group_repository.dart';
 import '../data/repositories/schedule_repository.dart';
+import '../data/repositories/settings_repository.dart';
 import '../features/campaigns/campaign_composer.dart';
 import '../features/scheduling/schedule_runner.dart';
 import '../features/sms_sending/send_orchestrator.dart';
@@ -29,7 +30,8 @@ Future<void> backgroundMain() async {
     final campaigns = CampaignRepository(db);
     final schedules = ScheduleRepository(db);
     final sms = AndroidSmsService();
-    final orchestrator = SendOrchestrator(sms: sms, attempts: attempts, campaigns: campaigns)..start();
+    final orchestrator =
+        SendOrchestrator(sms: sms, attempts: attempts, campaigns: campaigns, settings: SettingsRepository(db))..start();
     final composer = CampaignComposer(contacts: ContactRepository(db), groups: GroupRepository(db), campaigns: campaigns);
     await BackgroundJob(
       host: host, sms: sms, orchestrator: orchestrator, campaigns: campaigns, schedules: schedules,

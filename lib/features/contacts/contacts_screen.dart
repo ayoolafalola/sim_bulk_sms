@@ -1,12 +1,12 @@
-import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/providers.dart';
 import '../../app/settings_providers.dart';
-import '../../data/importers/contact_import_planner.dart';
+import '../../data/importers/csv_decode.dart';
 import '../../data/importers/csv_parser.dart';
+import 'csv_import_screen.dart';
 import '../../domain/models/contact.dart';
 import '../../domain/models/statuses.dart';
 import '../common/page_layout.dart';
@@ -118,62 +118,19 @@ class ContactsScreen extends ConsumerWidget {
   }
 
   Future<void> _importCsv(BuildContext context, WidgetRef ref) async {
-    final picked = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['csv', 'txt']);
+    // Excel files are allowed in the picker only to explain how to save them as CSV.
+    final picked = await FilePicker.pickFile(type: FileType.custom, allowedExtensions: ['csv', 'txt', 'xlsx', 'xls']);
     if (picked == null) return;
     final bytes = await picked.readAsBytes();
     if (!context.mounted) return;
-
-    final List<List<String>> table;
+    final String text;
     try {
-      table = parseCsv(utf8.decode(bytes, allowMalformed: true));
+      text = decodeCsvBytes(bytes);
     } on CsvFormatException catch (e) {
       _snack(context, e.message);
       return;
     }
-    final mapping = table.isEmpty ? null : ColumnMapping.suggest(table.first);
-    if (mapping == null) {
-      _snack(context, 'The first row must have headers including a name column and a phone column.');
-      return;
-    }
-    final repo = ref.read(contactRepositoryProvider);
-    final plan = planImport(
-      table: table,
-      mapping: mapping,
-      normalizer: ref.read(phoneNormalizerProvider),
-      existingNormalized: await repo.existingNormalized(),
-    );
-    if (!context.mounted) return;
-    final region = ref.read(defaultRegionProvider);
-    final go = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Import preview'),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Valid: ${plan.valid}'),
-          Text('Invalid: ${plan.invalid}'),
-          Text('Duplicates: ${plan.duplicates}'),
-          Text('Blank rows skipped: ${plan.skippedBlank}'),
-          if (plan.regionAssumedCount > 0) ...[
-            const SizedBox(height: 8),
-            Text('${plan.regionAssumedCount} numbers had no country code and were read as $region numbers.'),
-          ],
-        ]),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(
-              onPressed: plan.valid == 0 ? null : () => Navigator.pop(ctx, true),
-              child: Text('Import ${plan.valid}')),
-        ],
-      ),
-    );
-    if (go != true || !context.mounted) return;
-    try {
-      final n = await repo.commitImport(plan);
-      _refresh(ref);
-      if (context.mounted) _snack(context, 'Imported $n contacts.');
-    } catch (_) {
-      if (context.mounted) _snack(context, 'Import failed. Nothing was saved.');
-    }
+    await context.push('/contacts/import-csv', extra: CsvImportArgs(fileName: picked.name, text: text));
   }
 }
 

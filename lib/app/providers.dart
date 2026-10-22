@@ -4,9 +4,11 @@ import '../data/repositories/campaign_repository.dart';
 import '../data/repositories/contact_repository.dart';
 import '../data/repositories/group_repository.dart';
 import '../data/repositories/schedule_repository.dart';
+import '../data/repositories/settings_repository.dart';
 import '../domain/models/campaign.dart';
 import '../domain/models/contact.dart';
 import '../domain/models/schedule.dart';
+import '../domain/models/send_settings.dart';
 import '../domain/models/statuses.dart';
 import '../features/campaigns/campaign_composer.dart';
 import '../features/scheduling/schedule_runner.dart';
@@ -102,3 +104,16 @@ final scheduleRunnerProvider = Provider((ref) => ScheduleRunner(
       campaigns: ref.watch(campaignRepositoryProvider),
       composer: ref.watch(composerProvider),
     ));
+
+final settingsRepositoryProvider = Provider((ref) => SettingsRepository(ref.watch(databaseProvider)));
+
+final sendSettingsProvider = FutureProvider<SendSettings>((ref) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(settingsRepositoryProvider).load();
+});
+
+/// First-launch setup finished (or skipped through to the end).
+final onboardingDoneProvider = FutureProvider<bool>((ref) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(settingsRepositoryProvider).flag('onboarding_done');
+});

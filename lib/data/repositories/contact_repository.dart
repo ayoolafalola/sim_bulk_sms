@@ -10,6 +10,17 @@ String consentToDb(ConsentStatus s) => switch (s) {
 ConsentStatus consentFromDb(String s) => switch (s) {
       'opted_in' => ConsentStatus.optedIn, 'opted_out' => ConsentStatus.optedOut, _ => ConsentStatus.unknown };
 
+/// Result of [ContactRepository.commitImportToGroup].
+class ImportResult {
+  const ImportResult({required this.added, this.groupId, this.inGroup = 0});
+  /// New contacts created.
+  final int added;
+  /// The group everyone was added to (new or existing), if any.
+  final int? groupId;
+  /// People from the file now in that group (new and existing contacts).
+  final int inGroup;
+}
+
 /// Result of [ContactRepository.upsertByPhone].
 class UpsertResult {
   const UpsertResult({required this.ids, required this.added, required this.existing});
@@ -80,17 +91,39 @@ class ContactRepository {
 
   /// Commits ONLY the `valid` rows of a confirmed plan in a single transaction.
   /// Any failure rolls back everything (no partial import). Returns rows inserted.
-  Future<int> commitImport(ImportPlan plan) => _db.transaction((txn) async {
+  Future<int> commitImport(ImportPlan plan) async => (await commitImportToGroup(plan)).added;
+
+  /// Like [commitImport], optionally also putting everyone from the file into
+  /// a group: [groupId], or a new group called [newGroupName] created here.
+  /// Rows whose number is already a contact are added to the group too (not
+  /// duplicated). One transaction: on any failure nothing is saved, not even
+  /// the new group.
+  Future<ImportResult> commitImportToGroup(ImportPlan plan, {int? groupId, String? newGroupName}) =>
+      _db.transaction((txn) async {
         final now = _now();
-        var n = 0;
+        final ids = <int>[];
         for (final r in plan.importable) {
-          await txn.insert('contacts', {
+          ids.add(await txn.insert('contacts', {
             'name': r.name, 'phone_raw': r.phoneRaw, 'phone_normalized': r.e164, 'email': r.email,
             'consent_status': 'unknown', 'created_at': now, 'updated_at': now,
-          });
-          n++;
+          }));
         }
-        return n;
+        final added = ids.length;
+        var gid = groupId;
+        if (newGroupName != null && newGroupName.trim().isNotEmpty) {
+          gid = await txn.insert('recipient_groups', {'name': newGroupName.trim(), 'created_at': now, 'updated_at': now});
+        }
+        if (gid == null) return ImportResult(added: added);
+        for (final r in plan.existing) {
+          final rows = await txn.query('contacts', columns: ['id'], where: 'phone_normalized = ?', whereArgs: [r.e164]);
+          if (rows.isNotEmpty) ids.add(rows.first['id'] as int);
+        }
+        final b = txn.batch();
+        for (final id in ids.toSet()) {
+          b.insert('group_contacts', {'group_id': gid, 'contact_id': id}, conflictAlgorithm: ConflictAlgorithm.ignore);
+        }
+        await b.commit(noResult: true);
+        return ImportResult(added: added, groupId: gid, inGroup: ids.toSet().length);
       });
 
   /// Saves contacts whose numbers are already normalized, in one transaction.

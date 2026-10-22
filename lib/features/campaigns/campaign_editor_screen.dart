@@ -12,6 +12,7 @@ import '../../domain/services/campaign_planner.dart';
 import '../../platform/sms/sms_capability_service.dart';
 import '../common/page_layout.dart';
 import '../groups/group_detail_screen.dart';
+import 'message_counter.dart';
 
 /// Create a campaign, or rewrite a draft/ready one. The selection (groups and
 /// contacts) and fallbacks are saved with it and restored when editing.
@@ -266,7 +267,23 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
               textCapitalization: TextCapitalization.sentences,
               decoration: const InputDecoration(
                   labelText: 'Message', alignLabelWithHint: true, border: OutlineInputBorder()),
-              onChanged: (_) => _changed(),
+              onChanged: (_) {
+                setState(() {}); // live text counter
+                _changed();
+              },
+            ),
+            MessageCounter(
+              template: _template.text,
+              plan: _plan,
+              onUsePlain: (plain) {
+                final cursor = _template.selection;
+                _template.value = TextEditingValue(
+                  text: plain,
+                  selection: TextSelection.collapsed(offset: cursor.isValid ? cursor.end.clamp(0, plain.length) : plain.length),
+                );
+                setState(() {});
+                _changed();
+              },
             ),
             const SizedBox(height: 8),
             Wrap(spacing: 8, runSpacing: 4, children: [

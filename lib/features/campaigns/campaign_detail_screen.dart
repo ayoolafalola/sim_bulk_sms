@@ -12,6 +12,8 @@ import '../../domain/services/campaign_planner.dart';
 import '../../platform/sms/sms_capability_service.dart';
 import '../../domain/services/schedule_calculator.dart';
 import '../../data/repositories/schedule_repository.dart';
+import '../../domain/services/send_limits.dart';
+import '../setup/setup_status.dart';
 import 'campaign_composer.dart';
 import 'campaign_labels.dart';
 import '../common/page_layout.dart';
@@ -110,10 +112,12 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           subscriptionId = subs.single.id;
         }
       }
+      final timing = await _timingText(pending.length);
+      if (!mounted) return;
       if (!await _confirm(
           c.status == CampaignStatus.paused ? 'Resume sending?' : 'Send now?',
           'Send ${pending.length} messages (about ${est.totalSegments} SMS segments) through your SIM. '
-              'Your carrier charges apply. You can pause at any time.',
+              '$timing\n\nYour carrier charges apply. You can pause at any time.',
           'Send')) {
         return;
       }
@@ -136,13 +140,91 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
       _refresh();
       return;
     }
-    if (caps.blocker == DirectSendBlocker.permissionDenied) {
-      final ok = await ref.read(smsServiceProvider).requestRequiredPermissions();
-      ref.invalidate(capabilitiesProvider);
-      _snack(ok ? 'Permission granted. Tap Send again.' : 'SMS permission was not granted.');
+    if (caps.platform == SmsPlatform.android && caps.usesComposerHandoff) {
+      if (c.status == CampaignStatus.ready &&
+          !await _confirm('Send through your Messages app?',
+              'Automatic sending is off, so each of the ${pending.length} messages opens in your Messages app with '
+                  'everything filled in. Tap Send there, then come back and confirm.',
+              'Start')) {
+        return;
+      }
+      await _manualNext();
       return;
     }
     _snack(caps.messageForUser ?? 'Sending is not available on this device.');
+  }
+
+  /// Messages-app fallback: open the next message, then ask whether it was sent.
+  Future<void> _manualNext() async {
+    final orch = ref.read(sendOrchestratorProvider);
+    final app = ref.read(messagesAppProvider);
+    if (app == null) return;
+    setState(() => _busy = true);
+    try {
+      final m = await orch.startManualSend(_id);
+      if (m == null) {
+        _snack('Everyone has been handled.');
+        return;
+      }
+      if (!await app.open(m.phone, m.body)) {
+        await orch.finishManualSend(m.attemptId, sent: false, errorCode: 'no_messages_app');
+        _snack('No Messages app was found to send with.');
+        return;
+      }
+      if (!mounted) return;
+      // Shown when you come back from the Messages app.
+      final sent = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => AlertDialog(
+          title: Text('Did you send it to ${m.name}?'),
+          content: Text('Message ${m.position} of ${m.total}. The phone can\'t tell the app whether you tapped Send.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not sent')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sent')),
+          ],
+        ),
+      );
+      await orch.finishManualSend(m.attemptId, sent: sent == true);
+    } catch (e) {
+      _snack('$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+      _refresh();
+    }
+  }
+
+  /// SMS permission for automatic sending: ask, or open app settings if refused for good.
+  Future<void> _enableAutomatic() async {
+    final setup = ref.read(setupStatusProvider).valueOrNull;
+    if (setup?.permanentlyDenied.contains(SetupItem.sms) ?? false) {
+      await ref.read(backgroundSendServiceProvider)?.openAppSettings();
+      _snack('Turn on SMS under Permissions, then come back.');
+      return;
+    }
+    final ok = await ref.read(smsServiceProvider).requestRequiredPermissions();
+    ref.invalidate(capabilitiesProvider);
+    ref.read(backgroundStatusVersionProvider.notifier).state++;
+    _snack(ok ? 'Automatic sending is on.' : 'SMS permission was not granted.');
+  }
+
+  /// "Takes about 23 min. With your hourly limit it finishes around 16:40."
+  Future<String> _timingText(int messages) async {
+    final cfg = await ref.read(settingsRepositoryProvider).load();
+    final now = DateTime.now();
+    final sent = await ref.read(attemptRepositoryProvider).sendTimesSince(now.subtract(const Duration(hours: 24)));
+    final hit = checkLimits(sent: sent, now: now, settings: cfg);
+    final finish = estimateFinish(messages: messages, settings: cfg, sent: sent, now: now);
+    final plain = cfg.delay * (messages > 0 ? messages - 1 : 0);
+    final parts = <String>['Takes about ${formatDuration(plain)} at ${cfg.delaySeconds} s between messages.'];
+    if (hit != null) {
+      parts.add('The ${limitLabel(hit.kind).toLowerCase()} is reached right now, so sending starts '
+          'automatically at ${formatWhen(hit.resumeAt, now: now)}.');
+    }
+    if (finish.difference(now) > plain + const Duration(minutes: 1)) {
+      parts.add('With your send limits it finishes around ${formatWhen(finish, now: now)}.');
+    }
+    return parts.join(' ');
   }
 
   Future<int?> _pickSim(List<SimSubscription> subs) => showDialog<int>(
@@ -256,11 +338,20 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           ]),
           bottomNavigationBar: SafeArea(child: _actions(c, caps, list)),
           body: ListView(padding: pagePadding(context, extra: 24), children: [
-            Row(children: [
+            // Wrap, not Row: long status labels or large text sizes must not overflow.
+            Wrap(spacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
               Chip(label: Text(campaignStatusLabel(c.status))),
-              const SizedBox(width: 8),
               Text('${c.recipientCount} recipients'),
             ]),
+            if (pausedReasonText(c) case final why?)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(children: [
+                  const Icon(Icons.hourglass_bottom, size: 18),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(why)),
+                ]),
+              ),
             const SizedBox(height: 8),
             Text(c.messageTemplate, style: Theme.of(context).textTheme.bodyMedium),
             if (c.sourceCampaignId != null)
@@ -295,18 +386,22 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
         if (cap == null) {
           note = caps.isLoading ? null : 'Messaging is unavailable on this device.';
         } else if (hasPending) {
-          final ios = cap.platform == SmsPlatform.ios;
-          final canTry = cap.canSendDirectly || cap.usesComposerHandoff || cap.blocker == DirectSendBlocker.permissionDenied;
-          if (!canTry) note = cap.messageForUser ?? 'Sending is not available on this device.';
+          final handoff = !cap.canSendDirectly && cap.usesComposerHandoff; // iOS, or Android fallback
+          final canTry = cap.canSendDirectly || cap.usesComposerHandoff;
+          if (!canTry || (handoff && cap.platform == SmsPlatform.android)) {
+            note = cap.messageForUser ?? 'Sending is not available on this device.';
+          }
+          final done = list.where((r) => r.status != RecipientStatus.pending).length;
           buttons.add(FilledButton.icon(
             onPressed: (!canTry || _busy) ? null : () => _send(c, cap, list),
             icon: const Icon(Icons.send),
-            label: Text(ios
-                ? 'Open next message'
-                : cap.blocker == DirectSendBlocker.permissionDenied
-                    ? 'Allow SMS permission'
-                    : c.status == CampaignStatus.paused ? 'Resume' : 'Send'),
+            label: Text(handoff
+                ? 'Open next message (${done + 1} of ${list.length})'
+                : c.status == CampaignStatus.paused ? 'Resume' : 'Send'),
           ));
+          if (cap.platform == SmsPlatform.android && cap.blocker == DirectSendBlocker.permissionDenied) {
+            buttons.add(TextButton(onPressed: _enableAutomatic, child: const Text('Turn on automatic sending')));
+          }
         }
         if (c.status != CampaignStatus.ready) {
           buttons.add(OutlinedButton(onPressed: _cancel, child: const Text('Cancel campaign')));

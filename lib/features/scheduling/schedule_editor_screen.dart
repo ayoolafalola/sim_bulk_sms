@@ -9,7 +9,9 @@ import '../../domain/models/statuses.dart';
 import '../../domain/services/campaign_planner.dart';
 import '../../domain/services/schedule_calculator.dart';
 import '../../platform/sms/sms_capability_service.dart';
+import '../../app/sending_providers.dart';
 import '../common/page_layout.dart';
+import '../setup/setup_status.dart';
 
 /// Set when a campaign sends: once at a date/time, or every week on chosen days.
 /// Saving is the approval: scheduled runs don't ask again.
@@ -234,10 +236,25 @@ class _ScheduleEditorScreenState extends ConsumerState<ScheduleEditorScreen> {
                         'Carrier charges apply to every run.'),
                 if (_kind == ScheduleKind.weekly)
                   const Text('Each run goes to whoever is in the groups at that time, minus opted-out and suppressed numbers.'),
+                if (ref.watch(sendSettingsProvider).valueOrNull case final cfg?
+                    when cfg.dailyLimit > 0 && _perRun!.messages > cfg.dailyLimit) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'Each run is more than your daily limit of ${cfg.dailyLimit} messages, so it will pause and '
+                    'continue the next day (about ${(_perRun!.messages / cfg.dailyLimit).ceil()} days per run).',
+                    style: TextStyle(color: scheme.tertiary),
+                  ),
+                ],
               ],
             ]),
           ),
         ),
+        if (ref.watch(setupStatusProvider).valueOrNull case final setup? when !ios)
+          for (final i in setup.missingRequired)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text('${setupInfo[i]!.title} is off: ${setupInfo[i]!.ifMissing}', style: TextStyle(color: scheme.error)),
+            ),
         const SizedBox(height: 8),
         Card(
           color: scheme.surfaceContainerHighest,
@@ -254,9 +271,9 @@ class _ScheduleEditorScreenState extends ConsumerState<ScheduleEditorScreen> {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: () => context.push('/settings/background'),
+              onPressed: () => context.push('/settings/setup'),
               icon: const Icon(Icons.settings_outlined),
-              label: const Text('Background sending setup'),
+              label: const Text('App setup'),
             ),
           ),
       ]),

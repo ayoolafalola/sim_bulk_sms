@@ -3,8 +3,11 @@ import 'package:sqflite/sqflite.dart';
 import '../../domain/models/campaign.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/campaign_planner.dart';
+import '../../domain/services/send_limits.dart';
 
 String _now() => DateTime.now().toUtc().toIso8601String();
+/// UTC ISO with millisecond precision, so stored instants compare correctly as text.
+String _utcMs(DateTime d) => DateTime.fromMillisecondsSinceEpoch(d.millisecondsSinceEpoch, isUtc: true).toIso8601String();
 
 const _campaignToDb = {
   CampaignStatus.draft: 'draft', CampaignStatus.ready: 'ready', CampaignStatus.running: 'running',
@@ -33,7 +36,9 @@ class CampaignRepository {
       status: campaignStatusFromDb(r['status'] as String), platform: r['platform'] as String,
       subscriptionId: r['subscription_id'] as int?, recipientCount: r['recipient_count'] as int,
       createdAt: DateTime.parse(r['created_at'] as String),
-      sourceCampaignId: r['source_campaign_id'] as int?, scheduleId: r['schedule_id'] as int?);
+      sourceCampaignId: r['source_campaign_id'] as int?, scheduleId: r['schedule_id'] as int?,
+      pausedReason: r['paused_reason'] as String?,
+      resumeAt: r['resume_at'] == null ? null : DateTime.parse(r['resume_at'] as String).toLocal());
 
   Future<int> createDraft({
     required String name, required String template, required String platform,
@@ -132,7 +137,32 @@ class CampaignRepository {
   /// Asks a running send to stop after its current message (the sender checks
   /// the status before each one). No effect unless the campaign is running.
   Future<void> requestPause(int id) => _db.update('campaigns',
-      {'status': 'paused', 'updated_at': _now()}, where: "id = ? AND status = 'running'", whereArgs: [id]);
+      {'status': 'paused', 'paused_reason': 'user', 'resume_at': null, 'updated_at': _now()},
+      where: "id = ? AND status = 'running'", whereArgs: [id]);
+
+  /// Pauses a running campaign at a send limit; it resumes by itself at [resumeAt].
+  Future<void> pauseForLimit(int id, LimitKind kind, DateTime resumeAt) => _db.update('campaigns', {
+        'status': 'paused',
+        'paused_reason': kind == LimitKind.hourly ? 'hourly_limit' : 'daily_limit',
+        'resume_at': _utcMs(resumeAt),
+        'updated_at': _now(),
+      }, where: "id = ? AND status = 'running'", whereArgs: [id]);
+
+  /// Limit-paused campaigns whose resume time has come.
+  Future<List<int>> dueResumes(DateTime now) async => [
+        for (final r in await _db.query('campaigns', columns: ['id'],
+            where: "status = 'paused' AND resume_at IS NOT NULL AND resume_at <= ?",
+            whereArgs: [_utcMs(now)], orderBy: 'resume_at'))
+          r['id'] as int,
+      ];
+
+  /// Earliest automatic resume, if any campaign is waiting on a limit.
+  Future<DateTime?> nextResume() async {
+    final rows = await _db.rawQuery(
+        "SELECT MIN(resume_at) AS t FROM campaigns WHERE status = 'paused' AND resume_at IS NOT NULL");
+    final t = rows.first['t'] as String?;
+    return t == null ? null : DateTime.parse(t).toLocal();
+  }
 
   Future<void> delete(int id) => _db.delete('campaigns', where: 'id = ?', whereArgs: [id]);
 

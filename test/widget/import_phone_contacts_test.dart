@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sim_bulk_sms/app/providers.dart';
 import 'package:sim_bulk_sms/app/router.dart';
 import 'package:sim_bulk_sms/data/database/app_database.dart';
+import 'package:sim_bulk_sms/data/repositories/settings_repository.dart';
 import 'package:sim_bulk_sms/data/repositories/contact_repository.dart';
 import 'package:sim_bulk_sms/data/repositories/group_repository.dart';
 import 'package:sim_bulk_sms/features/contacts/import_phone_contacts_screen.dart';
@@ -50,6 +51,7 @@ void main() {
     late int groupId;
     await t.runAsync(() async {
       db = await openAppDatabase(databaseFactoryFfi, inMemoryDatabasePath);
+      await SettingsRepository(db).setFlag('onboarding_done', true); // past first-launch setup
       groupId = await GroupRepository(db).create('Church');
     });
     addTearDown(() => t.runAsync(db.close));
@@ -89,7 +91,7 @@ void main() {
 
     final members = await t.runAsync(() => GroupRepository(db).members(groupId));
     expect(members!.map((c) => c.name).toSet(), {'Ada Church', 'Bola Church'}); // '12' is not a valid number
-    expect(find.textContaining('skipped (invalid number): 1'), findsOneWidget);
+    expect(find.textContaining('skipped (invalid number): 1'), findsAtLeastNWidgets(1)); // may show on both screens mid-transition
     await t.pump(const Duration(seconds: 1)); // let the pop transition finish
     expect(find.text('Import from phone'), findsNothing); // returned to the group screen
     final saved = await t.runAsync(() => ContactRepository(db).count());

@@ -4,6 +4,8 @@ import '../data/repositories/schedule_repository.dart';
 import '../domain/models/schedule.dart';
 import '../domain/models/statuses.dart';
 import '../features/campaigns/campaign_labels.dart';
+import '../domain/services/send_limits.dart';
+import '../features/scheduling/next_wake.dart';
 import '../features/scheduling/schedule_runner.dart';
 import '../features/sms_sending/send_orchestrator.dart';
 import '../platform/sms/sms_capability_service.dart';
@@ -47,12 +49,16 @@ class BackgroundJob {
         }
         continue;
       }
-      await host.scheduleWake(await schedules.nextWake());
+      await host.scheduleWake(await nextWakeUp(schedules, campaigns));
       if (await host.finish()) return;
     }
   }
 
   Future<void> _runDueSchedules() async {
+    // Campaigns paused at a send limit whose resume time has come.
+    for (final id in await campaigns.dueResumes(_clock())) {
+      await _send(id);
+    }
     // One run at a time; keep going while runs are due (bounded for safety).
     for (var i = 0; i < 20; i++) {
       bool canAuto;
@@ -86,8 +92,9 @@ class BackgroundJob {
       final done = c.recipientCount - (n[RecipientStatus.pending] ?? 0);
       await host.progress(title: title, text: '$done of ${c.recipientCount}', done: done, total: c.recipientCount);
     });
+    LimitHit? hit;
     try {
-      await orchestrator.runAndroid(campaignId, subscriptionId: subscriptionId);
+      hit = await orchestrator.runAndroid(campaignId, subscriptionId: subscriptionId);
     } on SendBlockedException catch (e) {
       await host.notifyResult('${c.name} was not sent', e.toString());
       return;
@@ -99,7 +106,11 @@ class BackgroundJob {
     }
     await host.progress(title: title, text: 'Waiting for delivery reports…', done: c.recipientCount, total: c.recipientCount);
     await _awaitCallbacks(campaignId);
-    await host.notifyResult(await _resultTitle(campaignId, c.name), _summary(await campaigns.statusCounts(campaignId)));
+    final limit = hit == null
+        ? ''
+        : '${limitLabel(hit.kind)} reached. Resumes automatically at ${formatWhen(hit.resumeAt, now: _clock())}. ';
+    await host.notifyResult(
+        await _resultTitle(campaignId, c.name), '$limit${_summary(await campaigns.statusCounts(campaignId))}');
   }
 
   /// Until every message has a sent/failed result and (if the carrier sends

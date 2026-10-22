@@ -23,15 +23,17 @@ class AndroidSmsService implements SmsCapabilityService {
     final sims = (m['activeSubscriptions'] as int?) ?? 0;
     var blocker = DirectSendBlocker.none;
     String? msg;
+    const fallback = ' Messages open in your Messages app instead, one tap each.';
     if (!hasTelephony) { blocker = DirectSendBlocker.noTelephony; msg = 'This device has no telephony hardware.'; }
-    else if (!granted) { blocker = DirectSendBlocker.permissionDenied; msg = 'SMS permission is required to send through your SIM.'; }
+    else if (!granted) { blocker = DirectSendBlocker.permissionDenied; msg = 'SMS permission is off.$fallback'; }
     else if (sims == 0) { blocker = DirectSendBlocker.noSim; msg = 'No active SIM was found.'; }
     else if (!playPolicyResolved) { blocker = DirectSendBlocker.playPolicyUnresolved;
-      msg = 'Direct sending is disabled in this build until Google Play SMS permission eligibility is resolved.'; }
+      msg = 'Automatic sending is off in this version.$fallback'; }
     return SmsCapabilities(
       platform: SmsPlatform.android,
       canSendDirectly: blocker == DirectSendBlocker.none,
-      usesComposerHandoff: false, // Android composer fallback is not implemented yet
+      // Messages-app fallback whenever the phone can text but direct sending isn't allowed.
+      usesComposerHandoff: hasTelephony && blocker != DirectSendBlocker.none && blocker != DirectSendBlocker.noSim,
       canSelectSim: sims > 1,
       blocker: blocker,
       messageForUser: msg,

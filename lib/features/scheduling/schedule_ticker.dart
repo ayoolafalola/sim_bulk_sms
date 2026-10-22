@@ -7,6 +7,7 @@ import '../../app/sending_providers.dart';
 import '../../domain/models/schedule.dart';
 import '../../platform/sms/sms_capability_service.dart';
 import '../campaigns/campaign_labels.dart';
+import 'next_wake.dart';
 
 /// Keeps schedules moving while the app is open: at start, every 30 seconds,
 /// on returning to the app, and after any data change.
@@ -45,7 +46,8 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
     final bg = ref.read(backgroundSendServiceProvider);
     if (bg == null) return false;
     try {
-      return await bg.scheduleWake(await ref.read(scheduleRepositoryProvider).nextWake());
+      return await bg.scheduleWake(
+          await nextWakeUp(ref.read(scheduleRepositoryProvider), ref.read(campaignRepositoryProvider)));
     } catch (e) {
       debugPrint('Could not set the schedule wake-up: $e');
       return false;
@@ -62,7 +64,11 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _tick();
+    if (state == AppLifecycleState.resumed) {
+      // Permissions may have changed in system settings: re-check (drives the setup warnings).
+      ref.read(backgroundStatusVersionProvider.notifier).state++;
+      _tick();
+    }
   }
 
   void _say(String m) {
@@ -76,8 +82,10 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
       final bg = ref.read(backgroundSendServiceProvider);
       if (bg != null) {
         await _syncWake();
-        if ((await ref.read(scheduleRepositoryProvider).due(DateTime.now())).isNotEmpty &&
-            !(await bg.status()).serviceRunning) {
+        final now = DateTime.now();
+        final due = (await ref.read(scheduleRepositoryProvider).due(now)).isNotEmpty ||
+            (await ref.read(campaignRepositoryProvider).dueResumes(now)).isNotEmpty;
+        if (due && !(await bg.status()).serviceRunning) {
           await bg.checkNow();
         }
         return;

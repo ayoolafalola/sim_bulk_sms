@@ -29,7 +29,14 @@ class BackgroundBridge(private val activity: Activity) : MethodChannel.MethodCal
                 "exactAlarms" to WakeScheduler.canExact(activity),
                 "batteryUnrestricted" to activity.getSystemService(PowerManager::class.java)
                     .isIgnoringBatteryOptimizations(activity.packageName),
-                "serviceRunning" to SendService.isRunning))
+                "serviceRunning" to SendService.isRunning,
+                "telephony" to activity.packageManager.hasSystemFeature(PackageManager.FEATURE_TELEPHONY),
+                "sms" to PermissionMemory.granted(activity, Manifest.permission.SEND_SMS),
+                "smsPermanentlyDenied" to PermissionMemory.permanentlyDenied(activity, Manifest.permission.SEND_SMS),
+                "contacts" to PermissionMemory.granted(activity, Manifest.permission.READ_CONTACTS),
+                "contactsPermanentlyDenied" to PermissionMemory.permanentlyDenied(activity, Manifest.permission.READ_CONTACTS),
+                "notificationsPermanentlyDenied" to (Build.VERSION.SDK_INT >= 33 &&
+                    PermissionMemory.permanentlyDenied(activity, Manifest.permission.POST_NOTIFICATIONS))))
             "requestNotifications" -> requestNotifications(result)
             "openNotificationSettings" -> open(result, Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                 .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
@@ -57,6 +64,7 @@ class BackgroundBridge(private val activity: Activity) : MethodChannel.MethodCal
             result.success(NotificationManagerCompat.from(activity).areNotificationsEnabled()); return
         }
         pendingNotificationResult = result
+        PermissionMemory.markAsked(activity, Manifest.permission.POST_NOTIFICATIONS)
         ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), REQUEST_CODE)
     }
 
