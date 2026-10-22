@@ -43,7 +43,7 @@ class SetupItemCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final info = setupInfo[item]!;
+    final info = setupInfoFor(item);
     final ok = status.isOk(item);
     final permanent = status.permanentlyDenied.contains(item);
     final scheme = Theme.of(context).colorScheme;

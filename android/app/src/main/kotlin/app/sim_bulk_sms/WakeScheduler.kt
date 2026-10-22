@@ -8,7 +8,7 @@ import android.os.Build
 import android.util.Log
 
 /**
- * One exact alarm: the earliest upcoming scheduled run (computed in Dart).
+ * One exact alarm: the earliest upcoming scheduled run or limit resume (computed in Dart).
  * The time is also stored so it can be re-armed after a reboot or app update.
  * Without exact-alarm permission no alarm is set: an inexact alarm could not
  * start the foreground service from the background, so runs fall back to
@@ -47,7 +47,21 @@ object WakeScheduler {
     fun rearm(ctx: Context) {
         val at = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_AT, -1L)
         if (at < 0) return
-        if (at <= System.currentTimeMillis()) SendService.startCheck(ctx) else schedule(ctx, at)
+        if (at <= System.currentTimeMillis()) wakeNow(ctx) else schedule(ctx, at)
+    }
+
+    /**
+     * The wake-up time has come. Direct build: start the send service, which runs
+     * due schedules. Store build (no background sending): remind the user to open
+     * the app, where the run is prepared for sending through the Messages app.
+     */
+    fun wakeNow(ctx: Context) {
+        if (BuildConfig.STORE_BUILD) {
+            Notifications.result(ctx, "A scheduled campaign is due",
+                "Open ${ctx.getString(R.string.app_name)} to send it through your Messages app.")
+        } else {
+            SendService.startCheck(ctx)
+        }
     }
 
     private fun pendingIntent(ctx: Context): PendingIntent = PendingIntent.getBroadcast(

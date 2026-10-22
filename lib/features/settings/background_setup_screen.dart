@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/app_info.dart';
 import '../../app/sending_providers.dart';
 import '../common/page_layout.dart';
 import '../setup/setup_status.dart';
@@ -75,8 +76,10 @@ class _Checklist extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(missing.isEmpty
-                  ? 'All set. Messages send through your SIM, scheduled runs start on time even with the app closed, '
-                      'and sends continue if you leave the app.'
+                  ? isStoreBuild
+                      ? 'All set. You\'ll be reminded on time when a scheduled campaign is due.'
+                      : 'All set. Messages send through your SIM, scheduled runs start on time even with the app closed, '
+                          'and sends continue if you leave the app.'
                   : '${missing.length} required ${missing.length == 1 ? 'item is' : 'items are'} missing. '
                       'Fix ${missing.length == 1 ? 'it' : 'them'} below so sending and schedules work reliably.'),
             ),

@@ -20,9 +20,10 @@ class BackgroundBridge(private val activity: Activity) : MethodChannel.MethodCal
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "startSend" -> result.success(SendService.startSend(activity,
+            // The store build has no send service (removed from its manifest).
+            "startSend" -> result.success(!BuildConfig.STORE_BUILD && SendService.startSend(activity,
                 call.argument<Int>("campaignId")!!, call.argument<Int>("subscriptionId")))
-            "checkNow" -> result.success(SendService.startCheck(activity))
+            "checkNow" -> result.success(!BuildConfig.STORE_BUILD && SendService.startCheck(activity))
             "scheduleWake" -> result.success(WakeScheduler.schedule(activity, call.argument<Number>("at")?.toLong()))
             "status" -> result.success(mapOf(
                 "notifications" to NotificationManagerCompat.from(activity).areNotificationsEnabled(),

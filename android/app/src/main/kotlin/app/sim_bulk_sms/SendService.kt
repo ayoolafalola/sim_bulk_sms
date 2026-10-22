@@ -61,7 +61,7 @@ class SendService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Notifications.ensureChannels(this)
         ServiceCompat.startForeground(this, Notifications.ONGOING_ID,
-            Notifications.ongoing(this, "SIM Bulk SMS", "Preparing to send…", 0, 0),
+            Notifications.ongoing(this, getString(R.string.app_name), "Preparing to send…", 0, 0),
             if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE else 0)
         isRunning = true
         val cid = intent?.getIntExtra(EXTRA_CAMPAIGN, -1) ?: -1
@@ -93,12 +93,12 @@ class SendService : Service() {
             when (call.method) {
                 "takeJob" -> result.success(jobs.poll())
                 "progress" -> {
-                    Notifications.updateOngoing(this, call.argument<String>("title") ?: "SIM Bulk SMS",
+                    Notifications.updateOngoing(this, call.argument<String>("title") ?: getString(R.string.app_name),
                         call.argument<String>("text"), call.argument<Int>("done") ?: 0, call.argument<Int>("total") ?: 0)
                     result.success(null)
                 }
                 "notifyResult" -> {
-                    Notifications.result(this, call.argument<String>("title") ?: "SIM Bulk SMS", call.argument<String>("text") ?: "")
+                    Notifications.result(this, call.argument<String>("title") ?: getString(R.string.app_name), call.argument<String>("text") ?: "")
                     result.success(null)
                 }
                 "scheduleWake" -> result.success(WakeScheduler.schedule(this, call.argument<Number>("at")?.toLong()))

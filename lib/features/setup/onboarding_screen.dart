@@ -7,6 +7,7 @@ import '../../app/settings_providers.dart';
 import '../settings/send_settings_screen.dart';
 import 'setup_status.dart';
 import 'setup_widgets.dart';
+import '../../app/app_info.dart';
 
 sealed class _Step {
   const _Step();
@@ -90,7 +91,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Widget
       _Welcome() => (
           const _Page(
             icon: Icons.sms_outlined,
-            title: 'Welcome to SIM Bulk SMS',
+            title: 'Welcome to $appName',
             text: 'Send personalised text messages to your groups through your own SIM, now or on a schedule.\n\n'
                 'Your carrier\'s normal SMS charges apply.\n\n'
                 'The next few steps turn on what the app needs. It takes about a minute.',
@@ -170,7 +171,7 @@ class _PermissionPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final info = setupInfo[item]!;
+    final info = setupInfoFor(item);
     final ok = status.isOk(item);
     final scheme = Theme.of(context).colorScheme;
     return _Page(
@@ -247,8 +248,8 @@ class _DonePage extends StatelessWidget {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: Icon(Icons.error_outline, color: scheme.error),
-                  title: Text(setupInfo[i]!.title),
-                  subtitle: Text(setupInfo[i]!.ifMissing ?? ''),
+                  title: Text(setupInfoFor(i).title),
+                  subtitle: Text(setupInfoFor(i).ifMissing ?? ''),
                 ),
             ]),
     );

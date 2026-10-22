@@ -34,6 +34,13 @@ void main() {
       expect(s.items, isNot(contains(SetupItem.sms)));
       expect(s.complete, true);
     });
+    test('store build: only reminders matter; no SMS or battery items', () {
+      final s = SetupStatus.fromAndroid(nothingGranted, store: true);
+      expect(s.items, [SetupItem.notifications, SetupItem.exactAlarms, SetupItem.contacts]);
+      expect(s.missingRequired, [SetupItem.notifications, SetupItem.exactAlarms]);
+      expect(SetupStatus.fromAndroid(const BackgroundStatus(notifications: true, exactAlarms: true,
+          batteryUnrestricted: false, serviceRunning: false, sms: false), store: true).complete, true);
+    });
     test('refused for good is remembered per item', () {
       final s = SetupStatus.fromAndroid(const BackgroundStatus(notifications: true, exactAlarms: true,
           batteryUnrestricted: true, serviceRunning: false, sms: false, smsPermanentlyDenied: true));

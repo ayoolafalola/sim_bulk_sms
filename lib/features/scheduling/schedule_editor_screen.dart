@@ -10,6 +10,7 @@ import '../../domain/services/campaign_planner.dart';
 import '../../domain/services/schedule_calculator.dart';
 import '../../platform/sms/sms_capability_service.dart';
 import '../../app/sending_providers.dart';
+import '../../app/app_info.dart';
 import '../common/page_layout.dart';
 import '../setup/setup_status.dart';
 
@@ -253,7 +254,7 @@ class _ScheduleEditorScreenState extends ConsumerState<ScheduleEditorScreen> {
           for (final i in setup.missingRequired)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text('${setupInfo[i]!.title} is off: ${setupInfo[i]!.ifMissing}', style: TextStyle(color: scheme.error)),
+              child: Text('${setupInfoFor(i).title} is off: ${setupInfoFor(i).ifMissing}', style: TextStyle(color: scheme.error)),
             ),
         const SizedBox(height: 8),
         Card(
@@ -262,7 +263,10 @@ class _ScheduleEditorScreenState extends ConsumerState<ScheduleEditorScreen> {
             padding: const EdgeInsets.all(16),
             child: Text(ios
                 ? 'iPhone cannot send SMS by itself. When a run is due, open the app and tap Send for each message.'
-                : 'Saving this schedule approves the sends: they will not ask again. '
+                : isStoreBuild
+                    ? 'When a run is due you get a notification. Open the app and send each message through your '
+                        'Messages app. A run more than 2 hours late is skipped.'
+                    : 'Saving this schedule approves the sends: they will not ask again. '
                     'Runs send in the background, even with the app closed, once background sending is set up. '
                     'A run more than 2 hours late (for example, phone off) is skipped.'),
           ),

@@ -1,4 +1,5 @@
 import '../../platform/background/background_send_service.dart';
+import '../../app/app_info.dart';
 
 /// Everything the app asks the phone for. See [SetupStatus.required].
 enum SetupItem { sms, notifications, exactAlarms, battery, contacts }
@@ -22,29 +23,47 @@ const setupInfo = <SetupItem, SetupItemInfo>{
       ifMissing: 'Scheduled runs only start while the app is open.'),
   SetupItem.battery: SetupItemInfo('Battery: Unrestricted',
       'Stops Android from delaying or blocking sending to save battery.\n'
-          'On Samsung also: Settings › Battery › Background usage limits › Never sleeping apps › add SIM Bulk SMS.',
+          'On Samsung also: Settings › Battery › Background usage limits › Never sleeping apps › add $appName.',
       ifMissing: 'The phone may delay or stop background sends.'),
   SetupItem.contacts: SetupItemInfo('Contacts (optional)',
       'Only needed for "Import from phone". The app reads names and numbers; nothing is uploaded.'),
 };
 
+/// Store build: no automatic sending, so alarms only time the "campaign is due" reminder.
+const _storeInfo = <SetupItem, SetupItemInfo>{
+  SetupItem.notifications: SetupItemInfo('Notifications',
+      'Tells you when a scheduled campaign is due so you can send it.',
+      ifMissing: 'You won\'t be reminded when a scheduled campaign is due.'),
+  SetupItem.exactAlarms: SetupItemInfo('Alarms & reminders',
+      'Lets the app remind you at the exact time a scheduled campaign is due, even when it is closed.',
+      ifMissing: 'Reminders for scheduled campaigns may come late or only when you open the app.'),
+};
+
+/// Texts for [item] in this build.
+SetupItemInfo setupInfoFor(SetupItem item) => (isStoreBuild ? _storeInfo[item] : null) ?? setupInfo[item]!;
+
 /// What's granted on this phone, and what's still missing.
 class SetupStatus {
-  const SetupStatus({required this.granted, this.permanentlyDenied = const {}, this.items = SetupItem.values});
+  const SetupStatus({required this.granted, this.permanentlyDenied = const {}, this.items = SetupItem.values,
+      this.required = defaultRequired});
   final Map<SetupItem, bool> granted;
   final Set<SetupItem> permanentlyDenied;
   /// Items that apply to this phone (e.g. no SMS item without telephony).
   final List<SetupItem> items;
 
   /// Warned about until granted. Contacts is optional.
-  static const required = {SetupItem.sms, SetupItem.notifications, SetupItem.exactAlarms, SetupItem.battery};
+  static const defaultRequired = {SetupItem.sms, SetupItem.notifications, SetupItem.exactAlarms, SetupItem.battery};
+  /// Store build: only what the reminders need.
+  static const storeRequired = {SetupItem.notifications, SetupItem.exactAlarms};
+  final Set<SetupItem> required;
 
   bool isOk(SetupItem i) => granted[i] ?? false;
   bool isRequired(SetupItem i) => required.contains(i);
   List<SetupItem> get missingRequired => [for (final i in items) if (isRequired(i) && !isOk(i)) i];
   bool get complete => missingRequired.isEmpty;
 
-  factory SetupStatus.fromAndroid(BackgroundStatus b) => SetupStatus(
+  factory SetupStatus.fromAndroid(BackgroundStatus b, {bool store = isStoreBuild}) => SetupStatus(
+        required: store ? storeRequired : defaultRequired,
         granted: {
           SetupItem.sms: b.sms,
           SetupItem.notifications: b.notifications,
@@ -57,7 +76,9 @@ class SetupStatus {
           if (b.contactsPermanentlyDenied) SetupItem.contacts,
           if (b.notificationsPermanentlyDenied) SetupItem.notifications,
         },
-        items: [if (b.telephony) SetupItem.sms, SetupItem.notifications, SetupItem.exactAlarms, SetupItem.battery,
-          SetupItem.contacts],
+        items: store
+            ? const [SetupItem.notifications, SetupItem.exactAlarms, SetupItem.contacts]
+            : [if (b.telephony) SetupItem.sms, SetupItem.notifications, SetupItem.exactAlarms, SetupItem.battery,
+                SetupItem.contacts],
       );
 }

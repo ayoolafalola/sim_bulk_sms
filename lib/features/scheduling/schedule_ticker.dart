@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../app/app_info.dart';
 import '../../app/capability_providers.dart';
 import '../../app/providers.dart';
 import '../../app/sending_providers.dart';
@@ -80,7 +81,8 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
     _ticking = true;
     try {
       final bg = ref.read(backgroundSendServiceProvider);
-      if (bg != null) {
+      if (isStoreBuild) await _syncWake(); // store build: the alarm only posts a "due" reminder
+      if (bg != null && !isStoreBuild) {
         await _syncWake();
         final now = DateTime.now();
         final due = (await ref.read(scheduleRepositoryProvider).due(now)).isNotEmpty ||

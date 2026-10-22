@@ -10,6 +10,7 @@ import '../../domain/services/schedule_calculator.dart';
 import '../campaigns/campaign_labels.dart';
 import '../setup/setup_status.dart';
 import '../common/page_layout.dart';
+import '../../app/app_info.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -25,7 +26,7 @@ class DashboardScreen extends ConsumerWidget {
       if (next.valueOrNull == false) context.go('/welcome');
     });
     return Scaffold(
-      appBar: AppBar(title: const Text('SIM Bulk SMS'), actions: [
+      appBar: AppBar(title: const Text(appName), actions: [
         IconButton(
             tooltip: 'Settings',
             icon: Badge(isLabelVisible: setupMissing, child: const Icon(Icons.settings_outlined)),
@@ -212,7 +213,7 @@ class _SetupBanner extends StatelessWidget {
           for (final i in missing)
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
-              child: Text('• ${setupInfo[i]!.title}: ${setupInfo[i]!.ifMissing}',
+              child: Text('• ${setupInfoFor(i).title}: ${setupInfoFor(i).ifMissing}',
                   style: TextStyle(color: scheme.onErrorContainer)),
             ),
           const SizedBox(height: 4),

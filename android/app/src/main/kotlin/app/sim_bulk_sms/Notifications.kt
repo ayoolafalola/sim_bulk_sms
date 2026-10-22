@@ -22,7 +22,7 @@ object Notifications {
         nm.createNotificationChannel(NotificationChannel(CH_SENDING, "Sending", NotificationManager.IMPORTANCE_LOW)
             .apply { description = "Shown while a campaign is being sent" })
         nm.createNotificationChannel(NotificationChannel(CH_RESULTS, "Campaign results", NotificationManager.IMPORTANCE_DEFAULT)
-            .apply { description = "When a scheduled or background send finishes or stops" })
+            .apply { description = "When a send finishes or stops, or a scheduled campaign is due" })
     }
 
     private fun openApp(ctx: Context): PendingIntent? {
@@ -45,7 +45,9 @@ object Notifications {
     fun updateOngoing(ctx: Context, title: String, text: String?, done: Int, total: Int) =
         post(ctx, ONGOING_ID, ongoing(ctx, title, text, done, total))
 
-    fun result(ctx: Context, title: String, text: String) = post(ctx, nextResultId++,
+    fun result(ctx: Context, title: String, text: String) {
+        ensureChannels(ctx) // may be called from a receiver before the service ever ran
+        post(ctx, nextResultId++,
         NotificationCompat.Builder(ctx, CH_RESULTS)
             .setSmallIcon(android.R.drawable.stat_notify_chat)
             .setContentTitle(title)
@@ -54,6 +56,7 @@ object Notifications {
             .setAutoCancel(true)
             .setContentIntent(openApp(ctx))
             .build())
+    }
 
     private fun post(ctx: Context, id: Int, n: Notification) {
         // Without notification permission (Android 13+) this is silently skipped.

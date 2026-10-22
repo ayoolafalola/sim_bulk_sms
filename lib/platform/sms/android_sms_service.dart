@@ -1,6 +1,6 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import '../../app/app_info.dart';
 import '../../domain/models/statuses.dart';
 import 'sms_capability_service.dart';
 
@@ -8,11 +8,9 @@ class AndroidSmsService implements SmsCapabilityService {
   static const _methods = MethodChannel('app.sim_bulk_sms/sms_methods');
   static const _events = EventChannel('app.sim_bulk_sms/sms_events');
 
-  /// Release gate: keep false until Google Play approval/exception is documented
-  /// in docs/PERMISSIONS_AND_STORE_POLICY.md. Debug builds (`flutter run`) are
-  /// never distributed, so they may send; release builds need the define.
-  static const bool playPolicyResolved =
-      kDebugMode || bool.fromEnvironment('PLAY_SMS_POLICY_RESOLVED', defaultValue: false);
+  /// The store build never sends directly (no SMS permission in its manifest);
+  /// it hands each message to the Messages app instead.
+  static const bool directSendingAllowed = !isStoreBuild;
 
   @override
   Future<SmsCapabilities> getCapabilities() async {
@@ -25,10 +23,10 @@ class AndroidSmsService implements SmsCapabilityService {
     String? msg;
     const fallback = ' Messages open in your Messages app instead, one tap each.';
     if (!hasTelephony) { blocker = DirectSendBlocker.noTelephony; msg = 'This device has no telephony hardware.'; }
+    else if (!directSendingAllowed) { blocker = DirectSendBlocker.playPolicyUnresolved;
+      msg = 'This version sends through your Messages app, one tap each.'; }
     else if (!granted) { blocker = DirectSendBlocker.permissionDenied; msg = 'SMS permission is off.$fallback'; }
     else if (sims == 0) { blocker = DirectSendBlocker.noSim; msg = 'No active SIM was found.'; }
-    else if (!playPolicyResolved) { blocker = DirectSendBlocker.playPolicyUnresolved;
-      msg = 'Automatic sending is off in this version.$fallback'; }
     return SmsCapabilities(
       platform: SmsPlatform.android,
       canSendDirectly: blocker == DirectSendBlocker.none,

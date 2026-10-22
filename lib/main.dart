@@ -11,6 +11,7 @@ import 'app/settings_providers.dart';
 import 'data/repositories/attempt_repository.dart';
 import 'data/repositories/settings_repository.dart';
 import 'platform/background/background_send_service.dart';
+import 'app/app_info.dart';
 
 // Keeps the background service's Dart entry point compiled into the app.
 export 'background/background_main.dart' show backgroundMain;
@@ -21,7 +22,7 @@ Future<void> main() async {
     // sqflite and SIM sending need a phone. lib/main_web.dart is a UI-only mock.
     runApp(const StartupErrorApp(
         title: 'Run this app on a phone',
-        detail: 'SIM Bulk SMS stores data and sends SMS on Android or iOS. '
+        detail: '$appName stores data and sends SMS on Android or iOS. '
             'The browser cannot do either. Use `flutter run -d <your phone>`.'));
     return;
   }

@@ -17,7 +17,7 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- Deliberately NOT declared: READ_SMS, RECEIVE_SMS, WRITE_CONTACTS, READ_PHONE_NUMBERS -->
     <application
-        android:label="SIM Bulk SMS"
+        android:label="@string/app_name"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

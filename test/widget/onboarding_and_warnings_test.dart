@@ -65,8 +65,8 @@ void main() {
     final bg = FakeBackground(nothingGranted);
     await app(t, bg);
     appRouter.go('/');
-    await settle(t, until: find.text('Welcome to SIM Bulk SMS'));
-    expect(find.text('Welcome to SIM Bulk SMS'), findsOneWidget);
+    await settle(t, until: find.text('Welcome to SIM-based Bulk SMS'));
+    expect(find.text('Welcome to SIM-based Bulk SMS'), findsOneWidget);
 
     await t.tap(find.text('Get started'));
     await settle(t, until: find.text('Send SMS'));

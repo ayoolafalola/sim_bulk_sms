@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
+import 'app_info.dart';
 
 /// Shown instead of a blank screen when the app cannot start.
 class StartupErrorApp extends StatelessWidget {
@@ -8,7 +9,7 @@ class StartupErrorApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-        title: 'SIM Bulk SMS',
+        title: appName,
         theme: buildTheme(Brightness.light),
         home: Scaffold(
           body: SafeArea(
