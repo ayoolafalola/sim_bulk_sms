@@ -9,6 +9,7 @@ import '../data/repositories/settings_repository.dart';
 import '../domain/models/campaign.dart';
 import '../domain/models/contact.dart';
 import '../domain/models/email_settings.dart';
+import '../domain/models/pro.dart';
 import '../domain/models/schedule.dart';
 import '../domain/models/send_settings.dart';
 import '../domain/models/statuses.dart';
@@ -78,6 +79,7 @@ final composerProvider = Provider((ref) => CampaignComposer(
       contacts: ref.watch(contactRepositoryProvider),
       groups: ref.watch(groupRepositoryProvider),
       campaigns: ref.watch(campaignRepositoryProvider),
+      proStatus: ref.watch(settingsRepositoryProvider).loadPro,
     ));
 
 final allContactsProvider = FutureProvider<List<Contact>>((ref) {
@@ -123,6 +125,7 @@ final scheduleRunnerProvider = Provider((ref) => ScheduleRunner(
       schedules: ref.watch(scheduleRepositoryProvider),
       campaigns: ref.watch(campaignRepositoryProvider),
       composer: ref.watch(composerProvider),
+      proStatus: ref.watch(settingsRepositoryProvider).loadPro,
     ));
 
 final settingsRepositoryProvider = Provider((ref) => SettingsRepository(ref.watch(databaseProvider)));
@@ -135,6 +138,17 @@ final sendSettingsProvider = FutureProvider<SendSettings>((ref) {
 final emailSettingsProvider = FutureProvider<EmailSettings>((ref) {
   ref.watch(dataVersionProvider);
   return ref.watch(settingsRepositoryProvider).loadEmail();
+});
+
+final proStatusProvider = FutureProvider<ProStatus>((ref) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(settingsRepositoryProvider).loadPro();
+});
+
+/// The signature campaign texts and emails get right now (null = none).
+final campaignSignatureProvider = FutureProvider<String?>((ref) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(settingsRepositoryProvider).signature();
 });
 
 /// First-launch setup finished (or skipped through to the end).

@@ -19,6 +19,11 @@ chose, unless it is only processed in a way the user expects as the app's core f
   - Required or optional: Optional (only when the user turns on email).
   - Purpose: App functionality.
 
+## Subscriptions
+
+- **Financial info › Purchase history:** Not collected. Comeriver Pro is bought through Google Play Billing; the
+  app only asks Play whether a subscription is active and keeps that on the phone. Nothing is sent to us.
+
 ## Not collected
 
 - **SMS and MMS:** read, sent and stored only on the phone, through the user's carrier, at the user's request.

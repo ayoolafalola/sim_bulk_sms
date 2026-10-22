@@ -6,6 +6,7 @@ import '../../app/sending_providers.dart';
 import '../../app/theme.dart';
 import '../../domain/models/channels.dart';
 import '../../domain/models/email_settings.dart';
+import '../../domain/models/pro.dart';
 import '../../domain/services/email_body.dart';
 import '../../platform/email/email_sender.dart';
 import '../../platform/email/google_gmail_auth.dart';
@@ -259,6 +260,12 @@ class _EmailSettingsScreenState extends ConsumerState<EmailSettingsScreen> {
             TextField(controller: _fromName, textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(labelText: 'From name', hintText: 'Grace Church')),
             const SectionLabel('Email limits'),
+            if (!(ref.watch(proStatusProvider).valueOrNull?.isPro() ?? false))
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text('The free app sends up to ${FreeLimits.emailsPerDay} emails a day, whatever is set here. '
+                    'Pro uses your own limits.', style: TextStyle(color: muted, fontSize: 13)),
+              ),
             Row(children: [
               Expanded(
                 child: TextField(controller: _hourly, keyboardType: TextInputType.number, inputFormatters: digits,

@@ -8,6 +8,7 @@ enum ScheduleOutcome {
   blocked,        // message has unresolved variables: nothing sent
   noRecipients,   // nobody eligible at run time
   notReady,       // one-time schedule, but the campaign was no longer ready
+  needsPro,       // free plan: only the first schedule runs
 }
 
 class CampaignSchedule {

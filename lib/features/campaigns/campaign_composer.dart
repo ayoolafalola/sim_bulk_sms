@@ -4,6 +4,7 @@ import '../../data/repositories/group_repository.dart';
 import '../../domain/models/campaign.dart';
 import '../../domain/models/channels.dart';
 import '../../domain/models/contact.dart';
+import '../../domain/models/pro.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/campaign_planner.dart';
 
@@ -36,10 +37,22 @@ class RunPlanResult {
 /// fallbacks are stored too, so the campaign can be edited, resent and
 /// scheduled; each send still uses its own immutable snapshot.
 class CampaignComposer {
-  CampaignComposer({required this.contacts, required this.groups, required this.campaigns});
+  CampaignComposer({required this.contacts, required this.groups, required this.campaigns, this.proStatus});
   final ContactRepository contacts;
   final GroupRepository groups;
   final CampaignRepository campaigns;
+  /// The Pro subscription; without it (tests) there are no free-plan limits.
+  final Future<ProStatus> Function()? proStatus;
+
+  /// Refuses a new saved campaign beyond the free plan's [FreeLimits.campaigns].
+  Future<void> _checkCampaignLimit({int? excludeId}) async {
+    final pro = await proStatus?.call();
+    if (pro == null || pro.has(ProFeature.unlimitedCampaigns)) return;
+    if (await campaigns.countSavedCampaigns(excludeId: excludeId) >= FreeLimits.campaigns) {
+      throw ProRequiredException(ProFeature.unlimitedCampaigns,
+          'The free app keeps up to ${FreeLimits.campaigns} campaigns. Delete an old one, or go Pro for unlimited campaigns.');
+    }
+  }
 
   /// Union of group members and individually picked contacts, each contact once.
   Future<List<Contact>> resolveSelection({required Set<int> groupIds, required Set<int> contactIds}) async {
@@ -64,6 +77,7 @@ class CampaignComposer {
     Map<String, String> fallbacks = const {},
     SendChannel channel = SendChannel.sms,
     String subject = '',
+    String? smsSignature,
   }) async =>
       buildSnapshotPlan(
         template: template,
@@ -72,6 +86,7 @@ class CampaignComposer {
         fallbacks: fallbacks,
         channel: channel,
         subjectTemplate: subject,
+        smsSignature: smsSignature,
       );
 
   /// Plan for a saved campaign using its stored audience and fallbacks.
@@ -95,6 +110,7 @@ class CampaignComposer {
     String? subject,
   }) async {
     if (!plan.canSave) throw StateError('This campaign has blocked recipients or no recipients.');
+    await _checkCampaignLimit(excludeId: campaignId);
     final id = campaignId ??
         await campaigns.createDraft(
             name: name, template: template, platform: platform, fallbacks: fallbacks, channel: channel, subject: subject);
@@ -131,6 +147,7 @@ class CampaignComposer {
       recipients = p.recipients;
     }
     if (recipients.isEmpty) throw ResendRefusedException('No one in this campaign can be messaged now.');
+    await _checkCampaignLimit();
     return _copy(src, name: '${src.name} (again)', recipients: recipients, platform: platform);
   }
 

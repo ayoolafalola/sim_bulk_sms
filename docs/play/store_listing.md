@@ -1,7 +1,7 @@
 # Google Play store listing (draft)
 
 - **App name** (max 30): Comeriver Messages
-- **Category:** Communication · **Tags:** messaging, SMS · **Contains ads:** No · **In-app purchases:** No
+- **Category:** Communication · **Tags:** messaging, SMS · **Contains ads:** No · **In-app purchases:** Yes (Comeriver Pro subscription)
 - **Developer:** Comeriver Limited · **Contact email:** messages@comeriver.com · **Website:** https://messages.comeriver.com
 - **Privacy policy:** https://messages.comeriver.com/privacy · **Terms:** https://messages.comeriver.com/terms
 
@@ -37,6 +37,12 @@ by your carrier as normal SMS. There is no account, no server and no per-message
 **On your schedule**
 • Send once at a set time, or every week on chosen days (e.g. Sundays at 8:00).
 • Send again to the same people or to everyone in the groups now.
+
+**Free, or Comeriver Pro**
+• Free: every feature, with "Sent via messages.comeriver.com" at the end of campaign messages, up to 5 saved
+  campaigns, 1 schedule and 50 emails a day.
+• Comeriver Pro (monthly or yearly subscription): unlimited campaigns and schedules, your own email limits, and your
+  own signature or none. Personal messages never carry a signature.
 
 Your contacts and messages stay on your phone. Standard SMS charges from your carrier apply.
 

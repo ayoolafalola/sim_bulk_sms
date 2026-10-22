@@ -37,6 +37,7 @@ String scheduleOutcomeLabel(ScheduleOutcome o) => switch (o) {
       ScheduleOutcome.blocked => 'Not sent: missing values in the message',
       ScheduleOutcome.noRecipients => 'Not sent: no one to send to',
       ScheduleOutcome.notReady => 'Not sent: campaign was no longer ready',
+      ScheduleOutcome.needsPro => 'Not sent: the free app runs 1 schedule (Pro runs them all)',
     };
 
 String limitLabel(LimitKind k, {bool email = false}) =>

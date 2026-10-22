@@ -38,10 +38,11 @@ Future<void> backgroundMain() async {
       sms: sms, attempts: attempts, campaigns: campaigns, settings: settings,
       emailSender: () async => emailSenderFor(await settings.loadEmail(), gmail: gmail),
     )..start();
-    final composer = CampaignComposer(contacts: ContactRepository(db), groups: GroupRepository(db), campaigns: campaigns);
+    final composer = CampaignComposer(
+        contacts: ContactRepository(db), groups: GroupRepository(db), campaigns: campaigns, proStatus: settings.loadPro);
     await BackgroundJob(
       host: host, sms: sms, orchestrator: orchestrator, campaigns: campaigns, schedules: schedules,
-      runner: ScheduleRunner(schedules: schedules, campaigns: campaigns, composer: composer),
+      runner: ScheduleRunner(schedules: schedules, campaigns: campaigns, composer: composer, proStatus: settings.loadPro),
     ).run();
   } catch (e, st) {
     debugPrint('Background sending failed: $e\n$st');

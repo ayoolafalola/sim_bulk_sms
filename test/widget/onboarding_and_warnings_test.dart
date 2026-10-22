@@ -164,7 +164,7 @@ void main() {
     await settle(t, until: find.text('Start'));
     await t.tap(find.text('Start'));
     await settle(t, until: find.text('Did you send it to Ada?'));
-    expect(messages.opened, [('+2341', 'Hi Ada')]);
+    expect(messages.opened, [('+2341', 'Hi Ada\nSent via messages.comeriver.com')]); // free app: signature added
     await t.tap(find.text('Sent'));
     await settle(t, until: find.text('Open next message (2 of 2)'));
 

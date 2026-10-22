@@ -7,6 +7,7 @@ import '../../app/providers.dart';
 import '../../app/sending_providers.dart';
 import '../../data/repositories/attempt_repository.dart';
 import '../../domain/models/campaign.dart';
+import '../../domain/models/pro.dart';
 import '../../platform/email/email_sender.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/campaign_planner.dart';
@@ -20,6 +21,7 @@ import '../../app/theme.dart';
 import '../common/ui.dart';
 import 'campaign_labels.dart';
 import '../common/page_layout.dart';
+import '../pro/pro_screen.dart';
 
 /// Review, send and follow one campaign. Every figure comes from persisted
 /// recipient rows; nothing is shown as sent unless the platform reported it.
@@ -157,7 +159,8 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
       return;
     }
     if (caps.platform == SmsPlatform.android && caps.canSendDirectly) {
-      final est = estimateCampaign([for (final r in pending) r.renderedMessage]);
+      final signature = await ref.read(settingsRepositoryProvider).signature();
+      final est = estimateCampaign([for (final r in pending) withSignature(r.renderedMessage, signature)]);
       int? subscriptionId;
       if (caps.canSelectSim) {
         final subs = await ref.read(smsServiceProvider).getAvailableSubscriptions();
@@ -371,6 +374,8 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
       if (mounted) context.go('/campaigns/$id');
     } on ResendRefusedException catch (e) {
       _snack(e.message);
+    } on ProRequiredException catch (e) {
+      if (mounted) await showProRequired(context, e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

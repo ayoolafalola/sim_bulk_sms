@@ -24,3 +24,7 @@
 - Gmail needs a Google Cloud project and client ids in the build (docs/GMAIL_SETUP.md); until Google verifies the app, only up to 100 test users can connect. In the background Google may require signing in again: the run then waits for you.
 - Email limits pause a campaign until they allow more; on iPhone, a limit-paused email run resumes when you open the campaign and tap Send.
 - Mixed text+email campaigns: an SMS limit or email limit pauses the whole campaign until it resumes.
+- Pro is checked on the phone only (no server). A rooted or modified phone could fake it; acceptable at this price, and the billing code can move to a server or RevenueCat later without changing the screens.
+- On Google Play the app learns a subscription ended when it next asks Play (app start or return); offline, the last confirmed Pro status lasts up to 7 days.
+- On the free app the signature is pre-filled in the Messages-app and iPhone composer; the user can delete it there before sending.
+- App Store subscriptions are written but untested until the iOS app is built and signed.

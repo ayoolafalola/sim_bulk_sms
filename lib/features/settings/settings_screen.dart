@@ -51,6 +51,13 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ]),
             ),
+          const SizedBox(height: 12),
+          _Group(children: [
+            _Row('Comeriver Pro', null, () => context.push('/settings/pro'),
+                trailing: (ref.watch(proStatusProvider).valueOrNull?.isPro() ?? false)
+                    ? const StatusTag('Pro', tone: Tone.success)
+                    : const StatusTag('Free', tone: Tone.info)),
+          ]),
           const SectionLabel('Sending safely'),
           _Group(children: [
             _Row('Delay between messages', s == null ? '' : '${s.delaySeconds} s', () => context.push('/settings/send')),

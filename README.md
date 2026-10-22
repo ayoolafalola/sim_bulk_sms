@@ -13,6 +13,9 @@ by **text from your own SIM** or by **email**, now or on a schedule. App id `com
   opted-out and suppressed people always left out, every message tracked (sent, delivered, failed, unknown).
 - **Background (Android):** a foreground service sends with the app closed; exact alarms start schedules.
 - **Email:** any Mailgun-compatible API (docs/EMAIL_API.md) or Gmail with send-only access (docs/GMAIL_SETUP.md).
+- **Free or Pro:** free campaigns end with "Sent via messages.comeriver.com", with up to 5 saved campaigns,
+  1 schedule and 50 emails a day; the Comeriver Pro subscription (Google Play / App Store) lifts the limits and
+  lets you change or remove the signature (docs/BILLING_SETUP.md).
 - **iPhone / not the default app:** texts open in the Messages app one at a time; emails still go by themselves.
 
 No account, no server, no analytics: data stays on the phone (docs/privacy).

@@ -12,6 +12,8 @@ import '../../platform/sms/sms_capability_service.dart';
 import '../../app/sending_providers.dart';
 import '../../app/app_info.dart';
 import '../common/page_layout.dart';
+import '../../domain/models/pro.dart';
+import '../pro/pro_screen.dart';
 import '../setup/setup_status.dart';
 
 /// Set when a campaign sends: once at a date/time, or every week on chosen days.
@@ -139,7 +141,17 @@ class _ScheduleEditorScreenState extends ConsumerState<ScheduleEditorScreen> {
 
   Future<void> _save() async {
     setState(() => _saving = true);
-    await ref.read(scheduleRepositoryProvider).save(widget.campaignId, _spec, now: _now());
+    final pro = await ref.read(settingsRepositoryProvider).loadPro();
+    try {
+      await ref.read(scheduleRepositoryProvider).save(widget.campaignId, _spec, now: _now(),
+          maxSchedules: pro.has(ProFeature.unlimitedSchedules) ? null : FreeLimits.schedules);
+    } on ProRequiredException catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        await showProRequired(context, e.message);
+      }
+      return;
+    }
     ref.read(dataVersionProvider.notifier).state++;
     if (mounted) context.pop();
   }

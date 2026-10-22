@@ -33,6 +33,10 @@ class AttemptRepository {
     return rows.isEmpty ? null : recipientFromRow(rows.first);
   }
 
+  /// Records the exact text an attempt sends (message plus signature).
+  Future<void> setSentBody(int attemptId, String body) =>
+      _db.update('send_attempts', {'sent_body': body}, where: 'id = ?', whereArgs: [attemptId]);
+
   /// Stores the provider's id for a sent email (e.g. Mailgun's message id).
   Future<void> setOperationId(int attemptId, String id) =>
       _db.update('send_attempts', {'native_operation_id': id}, where: 'id = ?', whereArgs: [attemptId]);

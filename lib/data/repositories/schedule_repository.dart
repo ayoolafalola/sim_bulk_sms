@@ -1,4 +1,5 @@
 import 'package:sqflite/sqflite.dart';
+import '../../domain/models/pro.dart';
 import '../../domain/models/schedule.dart';
 import '../../domain/services/schedule_calculator.dart';
 
@@ -42,7 +43,18 @@ class ScheduleRepository {
 
   /// Creates or replaces the campaign's schedule (one per campaign) and
   /// computes its first run after [now]. Returns the schedule id.
-  Future<int> save(int campaignId, ScheduleSpec spec, {required DateTime now}) async {
+  ///
+  /// With [maxSchedules] (the free plan), refuses a new schedule once that many exist.
+  Future<int> save(int campaignId, ScheduleSpec spec, {required DateTime now, int? maxSchedules}) async {
+    if (maxSchedules != null) {
+      final others = Sqflite.firstIntValue(await _db.rawQuery(
+              'SELECT COUNT(*) FROM campaign_schedules WHERE campaign_id <> ?', [campaignId])) ?? 0;
+      if (others >= maxSchedules) {
+        throw ProRequiredException(ProFeature.unlimitedSchedules,
+            'The free app runs $maxSchedules schedule${maxSchedules == 1 ? '' : 's'}. '
+            'Remove the other schedule, or go Pro for unlimited schedules.');
+      }
+    }
     final next = nextOccurrence(spec, now);
     final values = {
       'campaign_id': campaignId,
@@ -110,6 +122,10 @@ class ScheduleRepository {
       'updated_at': _now(),
     }, where: 'id = ?', whereArgs: [id]);
   }
+
+  /// The schedule the free plan runs: the oldest one.
+  Future<int?> firstScheduleId() async =>
+      Sqflite.firstIntValue(await _db.rawQuery('SELECT MIN(id) FROM campaign_schedules'));
 
   Future<void> delete(int id) => _db.delete('campaign_schedules', where: 'id = ?', whereArgs: [id]);
 

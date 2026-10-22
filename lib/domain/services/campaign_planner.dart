@@ -2,6 +2,7 @@ import '../../core/sms/sms_segment_estimator.dart';
 import '../../core/templates/template_renderer.dart';
 import '../models/channels.dart';
 import '../models/contact.dart';
+import '../models/pro.dart';
 import '../models/statuses.dart';
 import 'recipient_eligibility.dart';
 
@@ -55,6 +56,8 @@ SnapshotPlan buildSnapshotPlan({
   Map<String, String> fallbacks = const {},
   SendChannel channel = SendChannel.sms,
   String subjectTemplate = '',
+  /// Added to texts when sent; counted in the SMS estimate only (the snapshot keeps the bare message).
+  String? smsSignature,
 }) {
   final ok = <Contact>[], sup = <Contact>[], opt = <Contact>[], inv = <Contact>[];
   final seenPhones = <String>{}, seenEmails = <String>{};
@@ -92,7 +95,7 @@ SnapshotPlan buildSnapshotPlan({
     }
     if (sms) {
       recs.add(SnapshotRecipient(contactId: c.id, name: c.name, phoneE164: phone!, renderedMessage: r.text!));
-      texts.add(r.text!);
+      texts.add(withSignature(r.text!, smsSignature));
     }
     if (mail) {
       recs.add(SnapshotRecipient(contactId: c.id, name: c.name, phoneE164: phone ?? '', renderedMessage: r.text!,

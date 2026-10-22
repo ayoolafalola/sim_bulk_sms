@@ -1,6 +1,7 @@
 import '../../data/repositories/campaign_repository.dart';
 import '../../data/repositories/schedule_repository.dart';
 import '../../domain/models/channels.dart';
+import '../../domain/models/pro.dart';
 import '../../domain/models/schedule.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/schedule_calculator.dart';
@@ -20,19 +21,29 @@ class ScheduleRunResult {
 /// so two scheduled sends never overlap (the next one is picked up on a later
 /// check, as long as it is still within the grace period).
 class ScheduleRunner {
-  ScheduleRunner({required this.schedules, required this.campaigns, required this.composer});
+  ScheduleRunner({required this.schedules, required this.campaigns, required this.composer, this.proStatus});
   final ScheduleRepository schedules;
   final CampaignRepository campaigns;
   final CampaignComposer composer;
+  /// The Pro subscription; without it (tests) every schedule runs.
+  final Future<ProStatus> Function()? proStatus;
 
   /// [canAutoSend] is false when this device can't send without the user
   /// (iOS, or Android with sending blocked): the run is prepared and left
   /// ready, and recorded as needing attention.
   Future<List<ScheduleRunResult>> runDue(DateTime now, {required String platform, required bool canAutoSend}) async {
     final out = <ScheduleRunResult>[];
+    final pro = await proStatus?.call();
+    // Free plan: only the first schedule runs (others kept from a past Pro subscription wait).
+    final onlyId = pro == null || pro.has(ProFeature.unlimitedSchedules) ? null : await schedules.firstScheduleId();
     for (final s in await schedules.due(now)) {
       final decision = dueDecision(s.nextRunAt, now);
       if (decision == DueDecision.notDue) continue;
+      if (onlyId != null && s.id != onlyId) {
+        await schedules.recordRun(s, now: now, outcome: ScheduleOutcome.needsPro);
+        out.add(ScheduleRunResult(s.id, ScheduleOutcome.needsPro, campaignName: (await campaigns.get(s.campaignId))?.name));
+        continue;
+      }
       if (decision == DueDecision.missed) {
         await schedules.recordRun(s, now: now, outcome: ScheduleOutcome.missed);
         out.add(ScheduleRunResult(s.id, ScheduleOutcome.missed, campaignName: (await campaigns.get(s.campaignId))?.name));

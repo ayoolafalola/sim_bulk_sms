@@ -184,6 +184,12 @@ class CampaignRepository {
 
   Future<void> delete(int id) => _db.delete('campaigns', where: 'id = ?', whereArgs: [id]);
 
+  /// Campaigns that count towards the free plan: everything you saved or resent, but not
+  /// drafts and not the runs a schedule creates. [excludeId] is the one being saved.
+  Future<int> countSavedCampaigns({int? excludeId}) async => Sqflite.firstIntValue(await _db.rawQuery(
+          "SELECT COUNT(*) FROM campaigns WHERE schedule_id IS NULL AND status <> 'draft' AND id <> ?",
+          [excludeId ?? -1])) ?? 0;
+
   Future<Campaign?> get(int id) async {
     final rows = await _db.query('campaigns', where: 'id = ?', whereArgs: [id]);
     return rows.isEmpty ? null : _fromRow(rows.first);

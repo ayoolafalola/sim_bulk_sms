@@ -5,6 +5,7 @@ import '../../data/repositories/settings_repository.dart';
 import '../../domain/models/campaign.dart';
 import '../../domain/models/channels.dart';
 import '../../domain/models/email_settings.dart';
+import '../../domain/models/pro.dart';
 import '../../domain/models/send_settings.dart';
 import '../../domain/services/email_body.dart';
 import '../../platform/email/email_sender.dart';
@@ -120,6 +121,8 @@ class SendOrchestrator {
 
     final cfg = await settings?.load();
     final emailCfg = await settings?.loadEmail() ?? const EmailSettings();
+    final signature = await _signature();
+    final pro = await settings?.loadPro() ?? const ProStatus();
     _active = true; _stop = false;
     var halted = false;
     LimitHit? hit;
@@ -133,7 +136,7 @@ class SendOrchestrator {
         if (now == null || now.status != CampaignStatus.running) { stoppedElsewhere = true; break; }
         final r = await attempts.nextPending(campaignId, channel: doSms ? null : MessageChannel.email);
         if (r == null) break;
-        hit = r.isEmail ? await _emailLimitHit(emailCfg) : await _limitHit(cfg);
+        hit = r.isEmail ? await _emailLimitHit(emailCfg, pro) : await _limitHit(cfg);
         if (hit != null) {
           await campaigns.pauseForLimit(campaignId, hit.kind, hit.resumeAt, email: hit.email);
           stoppedElsewhere = true; // status set: don't overwrite it below
@@ -148,14 +151,16 @@ class SendOrchestrator {
         // Persist "submitted" BEFORE sending: a crash now yields `unknown`, not a duplicate.
         await attempts.applyResult(attemptId, RecipientStatus.submitted);
         if (r.isEmail) {
-          halted = !await _sendEmail(mailer!, emailCfg, campaign, r, attemptId);
+          halted = !await _sendEmail(mailer!, emailCfg, campaign, r, attemptId, signature);
           if (halted) break;
           if (!_stop) await _sleep(emailInterval);
           continue;
         }
+        final body = withSignature(r.renderedMessage, signature);
+        await attempts.setSentBody(attemptId, body);
         final res = await sms.sendMessage(SmsSendRequest(
             campaignRecipientId: r.id, attemptId: attemptId, phoneE164: r.phone,
-            body: r.renderedMessage, subscriptionId: subscriptionId ?? campaign.subscriptionId));
+            body: body, subscriptionId: subscriptionId ?? campaign.subscriptionId));
         if (res.storedMessageId != null) await attempts.linkStoredMessage(attemptId, res.storedMessageId!);
         if (res.status == RecipientStatus.failed) {
           await attempts.applyResult(attemptId, RecipientStatus.failed,
@@ -185,8 +190,10 @@ class SendOrchestrator {
 
   /// Sends one email row and records the outcome. Returns false when sending
   /// should stop (the service refused the login or address: every email would fail).
-  Future<bool> _sendEmail(EmailSender mailer, EmailSettings cfg, Campaign c, CampaignRecipient r, int attemptId) async {
-    final body = emailBodies(r.renderedMessage, cfg);
+  Future<bool> _sendEmail(
+      EmailSender mailer, EmailSettings cfg, Campaign c, CampaignRecipient r, int attemptId, String? signature) async {
+    final body = emailBodies(r.renderedMessage, cfg, signature: signature);
+    await attempts.setSentBody(attemptId, body.text);
     final res = await mailer.send(OutgoingEmail(
       id: 'cr-${r.id}-a$attemptId', campaignId: c.id, toAddress: r.email ?? '', toName: r.name,
       subject: r.subject ?? c.name, text: body.text, html: body.html,
@@ -201,13 +208,20 @@ class SendOrchestrator {
     return !const {'auth', 'not_found', 'gmail_auth'}.contains(res.errorCode);
   }
 
-  /// The email limit reached right now, if any.
-  Future<LimitHit?> _emailLimitHit(EmailSettings cfg) async {
-    if (cfg.hourlyLimit <= 0 && cfg.dailyLimit <= 0) return null;
+  /// The campaign signature right now (none without settings, e.g. in some tests).
+  Future<String?> _signature() async => await settings?.signature();
+
+  /// The email limit reached right now, if any. The free app allows [FreeLimits.emailsPerDay] a day.
+  Future<LimitHit?> _emailLimitHit(EmailSettings cfg, ProStatus pro) async {
+    var daily = cfg.dailyLimit;
+    if (!pro.has(ProFeature.unlimitedEmail)) {
+      daily = daily <= 0 ? FreeLimits.emailsPerDay : daily.clamp(0, FreeLimits.emailsPerDay);
+    }
+    if (cfg.hourlyLimit <= 0 && daily <= 0) return null;
     final now = DateTime.now();
     final h = checkLimits(
         sent: await attempts.emailSendTimesSince(now.subtract(const Duration(hours: 24))), now: now,
-        settings: SendSettings(hourlyLimit: cfg.hourlyLimit, dailyLimit: cfg.dailyLimit));
+        settings: SendSettings(hourlyLimit: cfg.hourlyLimit, dailyLimit: daily));
     return h == null ? null : LimitHit(h.kind, h.resumeAt, email: true);
   }
 
@@ -240,8 +254,10 @@ class SendOrchestrator {
       await campaigns.setStatus(campaignId, CampaignStatus.awaitingUserAction);
       final attemptId = await attempts.beginAttempt(r.id, 'ios');
       await attempts.applyResult(attemptId, RecipientStatus.awaitingUserAction);
+      final body = withSignature(r.renderedMessage, await _signature());
+      await attempts.setSentBody(attemptId, body);
       final res = await sms.sendMessage(SmsSendRequest(
-          campaignRecipientId: r.id, attemptId: attemptId, phoneE164: r.phone, body: r.renderedMessage));
+          campaignRecipientId: r.id, attemptId: attemptId, phoneE164: r.phone, body: body));
       await attempts.applyResult(attemptId, res.status, errorCode: res.errorCode, errorMessage: res.errorMessage);
       await attempts.finalizeCampaign(campaignId);
       return res.status;
@@ -270,7 +286,9 @@ class SendOrchestrator {
     await attempts.applyResult(attemptId, RecipientStatus.awaitingUserAction);
     final texts = (await campaigns.recipients(campaignId)).where((x) => !x.isEmail).toList();
     final left = texts.where((x) => x.status == RecipientStatus.pending).length;
-    return ManualSend(attemptId: attemptId, name: r.name, phone: r.phone, body: r.renderedMessage,
+    final body = withSignature(r.renderedMessage, await _signature());
+    await attempts.setSentBody(attemptId, body);
+    return ManualSend(attemptId: attemptId, name: r.name, phone: r.phone, body: body,
         position: texts.length - left, total: texts.length);
   }
 

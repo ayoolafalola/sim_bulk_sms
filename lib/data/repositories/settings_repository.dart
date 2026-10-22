@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import '../../domain/models/email_settings.dart';
+import '../../domain/models/pro.dart';
 import '../../domain/models/send_settings.dart';
 
 /// Key/value app settings in the database, so the background service sees the
@@ -64,4 +65,14 @@ class SettingsRepository {
 
   Future<EmailSettings> loadEmail() async => EmailSettings.fromJson(await _get('email_settings'));
   Future<void> saveEmail(EmailSettings s) => _set('email_settings', s.toJson());
+
+  Future<ProStatus> loadPro() async => ProStatus.fromJson(await _get('pro_status'));
+  Future<void> savePro(ProStatus s) => _set('pro_status', s.toJson());
+
+  /// Pro only: the user's campaign signature ('' = none).
+  Future<String> customSignature() async => await _get('custom_signature') ?? '';
+  Future<void> setCustomSignature(String s) => _set('custom_signature', s.trim());
+
+  /// The signature campaign texts and emails get right now (null = none).
+  Future<String?> signature() async => campaignSignature(await loadPro(), custom: await customSignature());
 }

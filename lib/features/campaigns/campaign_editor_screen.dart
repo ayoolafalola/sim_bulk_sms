@@ -8,10 +8,12 @@ import '../../app/providers.dart';
 import '../../data/repositories/campaign_repository.dart';
 import '../../domain/models/campaign.dart';
 import '../../domain/models/channels.dart';
+import '../../domain/models/pro.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/campaign_planner.dart';
 import '../../platform/sms/sms_capability_service.dart';
 import '../common/page_layout.dart';
+import '../pro/pro_screen.dart';
 import '../groups/group_detail_screen.dart';
 import 'message_counter.dart';
 
@@ -158,7 +160,8 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
           ? null
           : await ref.read(composerProvider).plan(
               template: _template.text, groupIds: _groupIds, contactIds: _contactIds, fallbacks: _cleanFallbacks,
-              channel: _channel, subject: _subject.text.trim());
+              channel: _channel, subject: _subject.text.trim(),
+              smsSignature: await ref.read(settingsRepositoryProvider).signature());
       if (mounted && seq == _planSeq) setState(() => _plan = plan);
     });
   }
@@ -200,6 +203,11 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
       _dirty = false;
       _version.state++;
       if (mounted) context.go('/campaigns/$id');
+    } on ProRequiredException catch (e) {
+      if (mounted) {
+        setState(() => _saving = false);
+        await showProRequired(context, e.message); // the draft stays saved
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
@@ -238,6 +246,8 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
     final plan = _plan;
     final canSave = !_saving && plan != null && plan.canSave && _name.text.trim().isNotEmpty && !_needsSubject;
     final email = ref.watch(emailSettingsProvider).valueOrNull;
+    final signature = ref.watch(campaignSignatureProvider).valueOrNull;
+    final pro = ref.watch(proStatusProvider).valueOrNull?.isPro() ?? false;
     final fallbackKeys = {...?plan?.unresolvedVariables, ..._fallbacks.keys}.toList()..sort();
     final messenger = ScaffoldMessenger.of(context);
 
@@ -330,6 +340,7 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
             MessageCounter(
               template: _template.text,
               plan: _plan,
+              signature: _channel.usesSms ? signature : null,
               onUsePlain: (plain) {
                 final cursor = _template.selection;
                 _template.value = TextEditingValue(
@@ -395,7 +406,7 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
                 ),
             ],
             const SizedBox(height: 24),
-            if (plan != null) PlanSummary(plan, channel: _channel),
+            if (plan != null) PlanSummary(plan, channel: _channel, signature: signature, pro: pro),
           ],
         ),
       ),
@@ -405,9 +416,12 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
 
 /// What will actually be sent, derived from the plan. Shown before saving.
 class PlanSummary extends StatelessWidget {
-  const PlanSummary(this.plan, {super.key, this.channel = SendChannel.sms});
+  const PlanSummary(this.plan, {super.key, this.channel = SendChannel.sms, this.signature, this.pro = false});
   final SnapshotPlan plan;
   final SendChannel channel;
+  /// Added to every text and email when sent (null = none).
+  final String? signature;
+  final bool pro;
 
   @override
   Widget build(BuildContext context) {
@@ -457,8 +471,17 @@ class PlanSummary extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                   color: scheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(12)),
-              child: Text(plan.recipients.first.renderedMessage),
+              child: Text(withSignature(plan.recipients.first.renderedMessage, signature)),
             ),
+            if (signature != null && !pro)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  style: TextButton.styleFrom(padding: EdgeInsets.zero, visualDensity: VisualDensity.compact),
+                  onPressed: () => context.push('/settings/pro'),
+                  child: const Text('Change or remove the signature with Pro'),
+                ),
+              ),
             if (plan.recipients.where((r) => r.channel == MessageChannel.email).firstOrNull case final m?) ...[
               const SizedBox(height: 12),
               Text('Email to ${m.email}', style: Theme.of(context).textTheme.labelLarge),
@@ -472,6 +495,11 @@ class PlanSummary extends StatelessWidget {
                   Text(m.subject ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),
                   const SizedBox(height: 6),
                   Text(m.renderedMessage),
+                  if (signature != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(signature!, style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant)),
+                    ),
                 ]),
               ),
             ],

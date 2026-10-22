@@ -10,7 +10,9 @@ import 'data/database/app_database.dart';
 import 'app/settings_providers.dart';
 import 'data/repositories/attempt_repository.dart';
 import 'data/repositories/settings_repository.dart';
+import 'features/pro/pro_controller.dart';
 import 'platform/background/background_send_service.dart';
+import 'platform/billing/store_billing_service.dart';
 import 'app/app_info.dart';
 
 // Keeps the background service's Dart entry point compiled into the app.
@@ -37,6 +39,8 @@ Future<void> main() async {
       overrides: [
         databaseProvider.overrideWithValue(db),
         defaultRegionProvider.overrideWith((ref) => settings.defaultRegion),
+        if (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS)
+          billingServiceProvider.overrideWithValue(StoreBillingService()),
       ],
       child: const SimBulkSmsApp(),
     ));

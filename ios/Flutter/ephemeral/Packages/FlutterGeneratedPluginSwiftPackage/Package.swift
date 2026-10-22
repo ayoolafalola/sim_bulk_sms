@@ -17,7 +17,9 @@ let package = Package(
     dependencies: [
         .package(name: "file_picker_darwin", path: "../.packages/file_picker_darwin-2.3.2"),
         .package(name: "google_sign_in_ios", path: "../.packages/google_sign_in_ios-6.3.8"),
+        .package(name: "in_app_purchase_storekit", path: "../.packages/in_app_purchase_storekit-0.4.15"),
         .package(name: "sqflite_darwin", path: "../.packages/sqflite_darwin-2.4.4+1"),
+        .package(name: "url_launcher_ios", path: "../.packages/url_launcher_ios-6.4.2"),
         .package(name: "FlutterFramework", path: "../.packages/FlutterFramework")
     ],
     targets: [
@@ -26,7 +28,9 @@ let package = Package(
             dependencies: [
                 .product(name: "file-picker-darwin", package: "file_picker_darwin"),
                 .product(name: "google-sign-in-ios", package: "google_sign_in_ios"),
+                .product(name: "in-app-purchase-storekit", package: "in_app_purchase_storekit"),
                 .product(name: "sqflite-darwin", package: "sqflite_darwin"),
+                .product(name: "url-launcher-ios", package: "url_launcher_ios"),
                 .product(name: "FlutterFramework", package: "FlutterFramework")
             ]
         )

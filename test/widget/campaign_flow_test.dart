@@ -61,7 +61,8 @@ void main() {
     await settle(until: find.text('2 recipients', skipOffstage: false));
 
     expect(find.text('2 recipients', skipOffstage: false), findsOneWidget);
-    expect(find.text('Hi Ada, see you Saturday', skipOffstage: false), findsOneWidget);
+    // The free app adds the signature to every campaign text.
+    expect(find.text('Hi Ada, see you Saturday\nSent via messages.comeriver.com', skipOffstage: false), findsOneWidget);
     expect(find.textContaining('have not confirmed consent', skipOffstage: false), findsOneWidget);
 
     await t.tap(find.text('Save and review'));

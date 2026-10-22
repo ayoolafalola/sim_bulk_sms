@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../features/contacts/contact_sync_runner.dart';
+import '../features/pro/pro_controller.dart';
 import 'providers.dart';
 import 'sending_providers.dart';
 
@@ -41,6 +42,7 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
       WidgetsBinding.instance.addPostFrameCallback((_) => _openLaunch()); // opened from a notification / another app
     }
     WidgetsBinding.instance.addPostFrameCallback((_) => _syncContacts());
+    ref.read(proControllerProvider).start(); // Pro status from Google Play / the App Store
   }
 
   @override
@@ -53,7 +55,10 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _syncContacts(); // e.g. back from editing in the Contacts app
+    if (state == AppLifecycleState.resumed) {
+      _syncContacts(); // e.g. back from editing in the Contacts app
+      ref.read(proControllerProvider).refresh(); // e.g. back from managing the subscription
+    }
   }
 
   Future<void> _syncContacts() => ref.read(contactSyncRunnerProvider).run();

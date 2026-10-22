@@ -70,10 +70,12 @@ void main() {
     await settle(t, until: find.text('Sending domain'));
     await t.enterText(find.widgetWithText(TextField, 'Sending domain'), 'mg.example.com');
     await t.enterText(find.widgetWithText(TextField, 'API key'), 'key-123');
-    final list = find.ancestor(of: find.text('Sending domain'), matching: find.byType(Scrollable)).first;
+    final list = find.descendant(of: find.byType(ListView), matching: find.byType(Scrollable)).first;
     await t.scrollUntilVisible(find.text('From address'), 150, scrollable: list);
     await t.enterText(find.widgetWithText(TextField, 'From address'), 'news@mg.example.com');
     await t.scrollUntilVisible(find.text('Send test email'), 150, scrollable: list);
+    await t.drag(list, const Offset(0, -300)); // clear of the Save bar
+    await t.pump();
     await t.tap(find.text('Send test email'));
     await settle(t, until: find.text('Send a test email to'));
     await t.tap(find.text('Send'));

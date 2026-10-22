@@ -128,3 +128,19 @@
 - Publisher details: Comeriver Limited, messages@comeriver.com, https://messages.comeriver.com. Privacy policy
   for https://messages.comeriver.com/privacy and a draft terms of use (docs/terms) for /terms; Play, store
   listing and Gmail consent-screen docs point there.
+
+## Monetisation: free app and Comeriver Pro (analyze clean, 266 tests; billing not yet tried with Play)
+- Free app: campaign texts and emails (also scheduled runs, Send again, iPhone and Messages-app sends) end with
+  "Sent via messages.comeriver.com" on its own line; personal messages never do. It is added when each message is
+  sent, shown in the preview and counted in the SMS-part counter and Send confirmation. The exact text sent is
+  recorded per attempt (schema v8 `sent_body`).
+- Free limits: 5 saved campaigns (drafts and scheduled runs don't count; deleting frees a slot), 1 schedule
+  (after Pro ends, only the first one runs; the others record "needs Pro"), 50 emails a day.
+- **Comeriver Pro** subscription (no trial): Google Play `comeriver_pro` with `monthly`/`yearly` base plans;
+  App Store `comeriver_pro_monthly`/`_yearly`. Settings › Comeriver Pro: what Pro adds, plans with store prices,
+  Restore purchases, Manage subscription, and (Pro) your own signature or none. "See Pro" prompts when a limit is
+  reached. Pretend-Pro switch in debug builds.
+- Checked on the phone with `in_app_purchase` (no server): on start, on resume and after purchases; the last
+  confirmed status counts for 7 days offline; App Store expiry from StoreKit 2. Every Pro feature is a
+  `ProFeature` value, so more can be added to Pro later.
+- Docs: docs/BILLING_SETUP.md; privacy, terms, data safety, store listing and reviewer notes updated.

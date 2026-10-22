@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../features/campaigns/campaign_detail_screen.dart';
 import '../features/campaigns/campaign_editor_screen.dart';
 import '../features/contacts/contact_screen.dart';
+import '../features/pro/pro_screen.dart';
 import '../features/settings/email_settings_screen.dart';
 import '../features/contacts/contacts_screen.dart';
 import '../features/contacts/csv_import_screen.dart';
@@ -101,6 +102,7 @@ final appRouter = GoRouter(navigatorKey: rootNavigatorKey, initialLocation: '/me
         GoRoute(path: '/settings', builder: (c, s) => const SettingsScreen(), routes: [
           GoRoute(path: 'send', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const SendSettingsScreen()),
           GoRoute(path: 'email', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const EmailSettingsScreen()),
+          GoRoute(path: 'pro', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const ProScreen()),
           GoRoute(path: 'setup', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const AppSetupScreen()),
           // Older links.
           GoRoute(path: 'background', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const AppSetupScreen()),

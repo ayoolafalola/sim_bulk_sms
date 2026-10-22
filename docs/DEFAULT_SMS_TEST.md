@@ -45,4 +45,15 @@ Your old texts are not touched by switching.
     go first, then the texts open in your Messages app one by one.
 26. **Gmail** (only with a build that has the Google client ids): Settings › Email › Gmail › Connect › Send test email.
 
+**Free app and Comeriver Pro**
+
+27. **Signature:** a new campaign's preview ends with "Sent via messages.comeriver.com"; the counter says
+    "signature included". Send it: the text arrives with that line. Reply from the Messages tab: no line.
+28. **Limits:** save 5 campaigns, then a 6th: "See Pro". Add a schedule to a second campaign: "See Pro".
+29. **Buy (needs the internal-testing build from Google Play and a license tester, docs/BILLING_SETUP.md):**
+    Settings › Comeriver Pro › Monthly › test card › "Pro is on". Turn on a signature "Test", send a campaign: it
+    ends with "Test". Turn it off: no line.
+30. **Cancel:** Manage subscription › cancel; after the test renewal period, reopen the app: Free again.
+31. **Restore:** clear the app's data (or reinstall), Settings › Comeriver Pro › Restore purchases: Pro again.
+
 If anything misbehaves: `adb logcat -s SimBulkSms flutter` while reproducing, and note the step.

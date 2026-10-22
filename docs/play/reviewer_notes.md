@@ -15,5 +15,8 @@ personalised messages to groups.
    Close the app; at that time it sends and a notification shows the result.
 6. **Email (optional):** Settings › Email needs the reviewer's own Mailgun account or Gmail, so it is not
    required to review the app.
+7. **Comeriver Pro** (Settings › Comeriver Pro) is optional: the free app is fully usable. Pro removes the
+   "Sent via messages.comeriver.com" line from campaign messages and lifts the free limits (5 saved campaigns,
+   1 schedule, 50 emails a day). Personal messages never carry the line.
 
 Standard SMS charges apply to messages sent from the test device's SIM.
