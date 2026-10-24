@@ -54,7 +54,7 @@ void main() {
   }
 
   Future<void> settle(WidgetTester t, {Finder? until}) async {
-    for (var i = 0; i < 40; i++) {
+    for (var i = 0; i < 80; i++) {
       await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
       await t.pump(const Duration(milliseconds: 200));
       if (i >= 3 && (until == null || until.evaluate().isNotEmpty)) return;
@@ -70,19 +70,22 @@ void main() {
     expect(find.text('Welcome to Messages++'), findsOneWidget);
 
     await t.tap(find.text('Get started'));
-    await settle(t, until: find.text('Default messaging app'));
+    // Notifications come first, before the default-app step.
+    await settle(t, until: find.text('Notifications'));
     expect(find.text('Skip for now'), findsOneWidget);
     expect(find.textContaining('keep reminding you'), findsOneWidget);
+    await t.tap(find.text('Skip for now'));
+    await settle(t, until: find.text('Default messaging app'));
     await t.ensureVisible(find.text('Make default'));
     await t.pump();
     await t.tap(find.text('Make default'));
     await settle(t, until: find.text('On'));
     expect(find.text('On'), findsOneWidget);
     await t.tap(find.text('Next'));
-    await settle(t, until: find.text('Notifications'));
+    await settle(t, until: find.text('Alarms & reminders'));
 
-    // Skip notifications, alarms, battery; contacts is optional.
-    for (final title in ['Alarms & reminders', 'Battery: Unrestricted', 'Contacts (optional)', 'Your country']) {
+    // Skip alarms and battery; contacts is optional.
+    for (final title in ['Battery: Unrestricted', 'Contacts (optional)', 'Your country']) {
       await t.tap(find.text('Skip for now'));
       await settle(t, until: find.text(title));
       expect(find.text(title), findsWidgets);

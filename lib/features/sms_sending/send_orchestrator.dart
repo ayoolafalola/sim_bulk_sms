@@ -120,7 +120,7 @@ class SendOrchestrator {
     final doSms = !emailsOnly && pending.sms > 0;
     if (doSms) {
       final caps = await sms.getCapabilities();
-      if (caps.platform != SmsPlatform.android) throw StateError('runAndroid is Android-only.');
+      if (caps.platform != SmsPlatform.android) throw StateError('Texts can\'t be sent automatically on this phone.');
       if (!caps.canSendDirectly) throw SendBlockedException(caps.blocker, caps.messageForUser);
     }
     EmailSender? mailer;
@@ -314,7 +314,7 @@ class SendOrchestrator {
 
   /// Messages-app fallback, all at once: prepares up to [size] pending recipients that get
   /// the same text, or null if none is left. Answer with [finishManualBatch].
-  Future<ManualBatch?> startManualBatch(int campaignId, {int size = 20}) async {
+  Future<ManualBatch?> startManualBatch(int campaignId, {int size = 20, String platform = 'android_manual'}) async {
     final campaign = await campaigns.get(campaignId);
     if (campaign == null) throw StateError('Campaign not found.');
     if (campaign.status == CampaignStatus.draft || campaign.status == CampaignStatus.cancelled ||
@@ -333,7 +333,7 @@ class SendOrchestrator {
     final body = withSignature(text, await _signature());
     final ids = <int>[];
     for (final r in batch) {
-      final id = await attempts.beginAttempt(r.id, 'android_manual');
+      final id = await attempts.beginAttempt(r.id, platform);
       await attempts.applyResult(id, RecipientStatus.awaitingUserAction);
       await attempts.setSentBody(id, body);
       ids.add(id);

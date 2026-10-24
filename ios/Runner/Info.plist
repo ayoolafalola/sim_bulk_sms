@@ -15,15 +15,30 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>sim_bulk_sms</string>
+	<string>Messages++</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<!-- Gmail sign-in returns here: the reversed iOS OAuth client id (lib/app/google_config.dart). -->
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.194874520779-eg217gcidsieihdi9vs4ubfmdi82515t</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>GIDClientID</key>
+	<string>194874520779-eg217gcidsieihdi9vs4ubfmdi82515t.apps.googleusercontent.com</string>
+	<!-- Only standard HTTPS (email sending): exempt from export documentation. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSContactsUsageDescription</key>

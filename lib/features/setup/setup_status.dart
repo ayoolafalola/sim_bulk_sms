@@ -47,8 +47,12 @@ SetupItemInfo setupInfoFor(SetupItem item) => (isStoreBuild ? _storeInfo[item] :
 /// What's granted on this phone, and what's still missing.
 class SetupStatus {
   const SetupStatus({required this.granted, this.permanentlyDenied = const {}, this.items = SetupItem.values,
-      this.required = defaultRequired});
+      this.required = defaultRequired, this.notes = const {}});
   final Map<SetupItem, bool> granted;
+  /// Why an item still needs attention when the usual explanation isn't enough.
+  final Map<SetupItem, String> notes;
+  /// Items fixed in the phone's settings rather than by a prompt.
+  bool opensSettings(SetupItem i) => notes.containsKey(i);
   final Set<SetupItem> permanentlyDenied;
   /// Items that apply to this phone (e.g. no SMS item without telephony).
   final List<SetupItem> items;
@@ -68,10 +72,18 @@ class SetupStatus {
         required: store ? storeRequired : defaultRequired,
         granted: {
           SetupItem.sms: b.defaultSms,
-          SetupItem.notifications: b.notifications,
+          SetupItem.notifications: b.notifications && b.notificationsConfirmed && !b.messageNotificationsOff,
           SetupItem.exactAlarms: b.exactAlarms,
           SetupItem.battery: b.batteryUnrestricted,
           SetupItem.contacts: b.contacts,
+        },
+        notes: {
+          if (b.notifications && !b.notificationsConfirmed)
+            SetupItem.notifications: 'Notifications are on only because $appName is your default messaging app, so '
+                'they would stop if that changed. Turn them on in Settings so they stay on.',
+          if (b.notifications && b.notificationsConfirmed && b.messageNotificationsOff)
+            SetupItem.notifications: '"Messages" notifications are turned off, so you won\'t hear about new texts. '
+                'Turn them on in Settings.',
         },
         permanentlyDenied: {
           if (b.smsPermanentlyDenied) SetupItem.sms,
@@ -80,7 +92,9 @@ class SetupStatus {
         },
         items: store
             ? const [SetupItem.notifications, SetupItem.exactAlarms, SetupItem.contacts]
-            : [if (b.telephony) SetupItem.sms, SetupItem.notifications, SetupItem.exactAlarms, SetupItem.battery,
+            // Notifications first: asked before becoming the default app, it's the user's own choice
+            // (Android 13+ would otherwise grant it with the default-app role and take it back with it).
+            : [SetupItem.notifications, if (b.telephony) SetupItem.sms, SetupItem.exactAlarms, SetupItem.battery,
                 SetupItem.contacts],
       );
 }

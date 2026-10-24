@@ -26,7 +26,9 @@ class BackgroundBridge(private val activity: Activity) : MethodChannel.MethodCal
             "checkNow" -> result.success(!BuildConfig.STORE_BUILD && SendService.startCheck(activity))
             "scheduleWake" -> result.success(WakeScheduler.schedule(activity, call.argument<Number>("at")?.toLong()))
             "status" -> result.success(mapOf(
-                "notifications" to NotificationManagerCompat.from(activity).areNotificationsEnabled(),
+                "notifications" to notificationsOn(),
+                "notificationsConfirmed" to notificationsConfirmed(),
+                "messageNotificationsOff" to Notifications.messagesChannelOff(activity),
                 "exactAlarms" to WakeScheduler.canExact(activity),
                 "batteryUnrestricted" to activity.getSystemService(PowerManager::class.java)
                     .isIgnoringBatteryOptimizations(activity.packageName),
@@ -40,8 +42,12 @@ class BackgroundBridge(private val activity: Activity) : MethodChannel.MethodCal
                 "notificationsPermanentlyDenied" to (Build.VERSION.SDK_INT >= 33 &&
                     PermissionMemory.permanentlyDenied(activity, Manifest.permission.POST_NOTIFICATIONS))))
             "requestNotifications" -> requestNotifications(result)
-            "openNotificationSettings" -> open(result, Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
+            "openNotificationSettings" -> {
+                // Setting it there is the user's own choice: it stays when the default-app role changes.
+                PermissionMemory.markConfirmed(activity, NOTIFY)
+                open(result, Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                    .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName))
+            }
             "openExactAlarmSettings" -> if (Build.VERSION.SDK_INT >= 31)
                 open(result, Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, pkgUri())) else result.success(true)
             "openBatterySettings" -> open(result, Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkgUri()),
@@ -60,10 +66,21 @@ class BackgroundBridge(private val activity: Activity) : MethodChannel.MethodCal
         }
     }
 
+    /** Notifications can actually be shown: the permission (Android 13+) and the app-level switch. */
+    private fun notificationsOn(): Boolean =
+        (Build.VERSION.SDK_INT < 33 || PermissionMemory.granted(activity, NOTIFY)) &&
+            NotificationManagerCompat.from(activity).areNotificationsEnabled()
+
+    /** On by the user's own choice, not only because this is the default SMS app (see [PermissionMemory.markConfirmed]). */
+    private fun notificationsConfirmed(): Boolean {
+        if (Build.VERSION.SDK_INT < 33) return true
+        if (notificationsOn() && !MessageStore.isDefault(activity)) PermissionMemory.markConfirmed(activity, NOTIFY)
+        return PermissionMemory.confirmed(activity, NOTIFY)
+    }
+
     private fun requestNotifications(result: MethodChannel.Result) {
-        if (Build.VERSION.SDK_INT < 33 || ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS)
-                == PackageManager.PERMISSION_GRANTED) {
-            result.success(NotificationManagerCompat.from(activity).areNotificationsEnabled()); return
+        if (Build.VERSION.SDK_INT < 33 || PermissionMemory.granted(activity, NOTIFY)) {
+            result.success(notificationsOn() && notificationsConfirmed()); return
         }
         pendingNotificationResult = result
         PermissionMemory.markAsked(activity, Manifest.permission.POST_NOTIFICATIONS)
@@ -72,9 +89,14 @@ class BackgroundBridge(private val activity: Activity) : MethodChannel.MethodCal
 
     fun onPermissionsResult(requestCode: Int) {
         if (requestCode != REQUEST_CODE) return
-        pendingNotificationResult?.success(NotificationManagerCompat.from(activity).areNotificationsEnabled())
+        // The user answered the prompt themselves: a grant here is their choice.
+        if (notificationsOn()) PermissionMemory.markConfirmed(activity, NOTIFY)
+        pendingNotificationResult?.success(notificationsOn())
         pendingNotificationResult = null
     }
 
-    companion object { private const val REQUEST_CODE = 7423 }
+    companion object {
+        private const val REQUEST_CODE = 7423
+        private const val NOTIFY = Manifest.permission.POST_NOTIFICATIONS
+    }
 }

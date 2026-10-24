@@ -23,6 +23,17 @@ object PermissionMemory {
     fun granted(ctx: Context, permission: String) =
         ContextCompat.checkSelfPermission(ctx, permission) == PackageManager.PERMISSION_GRANTED
 
+    /**
+     * The user chose this permission themselves. Android 13+ grants notifications to the default SMS app
+     * automatically and takes them back when it stops being the default, so a grant seen only while default
+     * isn't treated as the user's choice until confirmed (granted while not default, or set in Settings).
+     */
+    fun markConfirmed(ctx: Context, permission: String) =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("confirmed:$permission", true).apply()
+
+    fun confirmed(ctx: Context, permission: String) =
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("confirmed:$permission", false)
+
     /** Asked before, still not granted, and Android won't show the prompt again. */
     fun permanentlyDenied(activity: Activity, permission: String): Boolean =
         !granted(activity, permission) &&

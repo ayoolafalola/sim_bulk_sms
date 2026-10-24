@@ -18,11 +18,26 @@ void main() {
     test('nothing granted: the four required items are missing, contacts is not', () {
       final s = SetupStatus.fromAndroid(nothingGranted);
       expect(s.missingRequired,
-          [SetupItem.sms, SetupItem.notifications, SetupItem.exactAlarms, SetupItem.battery]);
+          [SetupItem.notifications, SetupItem.sms, SetupItem.exactAlarms, SetupItem.battery]); // notifications first
       expect(s.complete, false);
       expect(s.isRequired(SetupItem.contacts), false);
     });
     test('everything granted: complete', () => expect(SetupStatus.fromAndroid(everythingGranted).complete, true));
+    test('notifications granted only by the default-app role are not counted until the user confirms', () {
+      const roleOnly = BackgroundStatus(notifications: true, notificationsConfirmed: false, exactAlarms: true,
+          batteryUnrestricted: true, serviceRunning: false, defaultSms: true);
+      final s = SetupStatus.fromAndroid(roleOnly);
+      expect(s.isOk(SetupItem.notifications), false);
+      expect(s.opensSettings(SetupItem.notifications), true);
+      expect(s.notes[SetupItem.notifications], contains('default messaging app'));
+    });
+    test('"Messages" notifications turned off counts as missing', () {
+      const channelOff = BackgroundStatus(notifications: true, messageNotificationsOff: true, exactAlarms: true,
+          batteryUnrestricted: true, serviceRunning: false, defaultSms: true);
+      final s = SetupStatus.fromAndroid(channelOff);
+      expect(s.missingRequired, [SetupItem.notifications]);
+      expect(s.notes[SetupItem.notifications], contains('"Messages" notifications are turned off'));
+    });
     test('contacts missing alone does not count as incomplete', () {
       final s = SetupStatus.fromAndroid(const BackgroundStatus(notifications: true, exactAlarms: true,
           batteryUnrestricted: true, serviceRunning: false, sms: true, contacts: false));

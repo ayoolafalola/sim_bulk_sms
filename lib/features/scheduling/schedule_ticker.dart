@@ -8,6 +8,8 @@ import '../../app/sending_providers.dart';
 import '../../domain/models/schedule.dart';
 import '../../platform/sms/sms_capability_service.dart';
 import '../campaigns/campaign_labels.dart';
+import '../../app/router.dart';
+import '../../platform/reminders/schedule_reminders.dart';
 import 'next_wake.dart';
 
 /// Keeps schedules moving while the app is open: at start, every 30 seconds,
@@ -32,12 +34,18 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _tick());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _tick();
+      _syncReminders();
+    });
     _timer = Timer.periodic(const Duration(seconds: 30), (_) => _tick());
     // Schedules edited, paused or removed: move the wake-up alarm promptly.
     ref.listenManual(dataVersionProvider, (_, __) {
       _wakeDebounce?.cancel();
-      _wakeDebounce = Timer(const Duration(seconds: 1), _syncWake);
+      _wakeDebounce = Timer(const Duration(seconds: 1), () {
+        _syncWake();
+        _syncReminders();
+      });
     });
   }
 
@@ -52,6 +60,17 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
     } catch (e) {
       debugPrint('Could not set the schedule wake-up: $e');
       return false;
+    }
+  }
+
+  /// iPhone / iPad: keep a local reminder at each upcoming scheduled run.
+  Future<void> _syncReminders() async {
+    final reminders = ref.read(scheduleRemindersProvider);
+    if (reminders == null) return;
+    try {
+      await reminders.set(remindersFor(await ref.read(scheduleRepositoryProvider).list(), DateTime.now()));
+    } catch (e) {
+      debugPrint('Could not set schedule reminders: $e');
     }
   }
 
@@ -103,6 +122,9 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
           .runDue(DateTime.now(), platform: ios ? 'ios' : 'android', canAutoSend: canAuto);
       if (results.isEmpty) return;
       ref.read(dataVersionProvider.notifier).state++;
+      // Opened from a reminder (or the app was open): go straight to the run that needs you.
+      final ready = results.where((r) => r.outcome == ScheduleOutcome.needsAttention && r.campaignId != null).firstOrNull;
+      if (ios && ready != null) appRouter.go('/campaigns/${ready.campaignId}');
       for (final r in results) {
         final name = r.campaignName ?? 'A scheduled campaign';
         _say('$name: ${scheduleOutcomeLabel(r.outcome)}.');

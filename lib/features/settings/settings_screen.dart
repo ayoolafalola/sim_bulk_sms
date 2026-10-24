@@ -1,6 +1,9 @@
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../app/app_info.dart';
 import '../../app/capability_providers.dart';
 import '../../app/providers.dart';
@@ -8,6 +11,8 @@ import '../../app/sending_providers.dart';
 import '../../app/theme.dart';
 import '../campaigns/campaign_labels.dart';
 import '../contacts/contact_sync_runner.dart';
+import '../pro/pro_controller.dart';
+import 'app_reset.dart';
 import '../common/page_layout.dart';
 import '../common/ui.dart';
 import '../settings/send_settings_screen.dart';
@@ -77,6 +82,8 @@ class SettingsScreen extends ConsumerWidget {
           const _ContactsSyncGroup(),
           const SectionLabel('App'),
           _Group(children: [
+            // Android only: the permissions and battery settings background sending needs.
+            if (ref.watch(backgroundSendServiceProvider) != null)
             _Row(
               'App setup',
               null,
@@ -90,7 +97,25 @@ class SettingsScreen extends ConsumerWidget {
             _Row('Default country', country, () => context.push('/settings/send')),
           ]),
           const SizedBox(height: 24),
-          Center(child: Text('$appFullName · version 1.0.0', style: TextStyle(color: c.muted, fontSize: 12))),
+          const SectionLabel('About'),
+          _Group(children: [
+            const _Link(Icons.share_outlined, 'Share $appName', _share),
+            _Link(Icons.language, 'Website', () => _open(AppLinks.website)),
+            _Link(Icons.privacy_tip_outlined, 'Privacy policy', () => _open(AppLinks.privacy)),
+            _Link(Icons.description_outlined, 'Terms of use', () => _open(AppLinks.terms)),
+            const _Link(Icons.mail_outline, 'Contact support', _emailSupport),
+            _Link(Icons.business_outlined, 'Made by Comeriver', () => _open(AppLinks.developer)),
+          ]),
+          const SizedBox(height: 24),
+          Center(child: Text('$appFullName · version $appVersion', style: TextStyle(color: c.muted, fontSize: 12))),
+          // Out of the way on purpose: it erases the app's own data.
+          Center(
+            child: TextButton(
+              style: TextButton.styleFrom(foregroundColor: c.muted, textStyle: const TextStyle(fontSize: 12)),
+              onPressed: () => _confirmReset(context, ref),
+              child: const Text('Reset app…'),
+            ),
+          ),
         ]),
       ),
     );
@@ -111,6 +136,21 @@ class _Group extends StatelessWidget {
             children[i],
           ],
         ]),
+      );
+}
+
+class _Link extends StatelessWidget {
+  const _Link(this.icon, this.title, this.onTap);
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+        leading: Icon(icon, color: AppColors.of(context).muted),
+        title: Text(title),
+        trailing: Icon(Icons.chevron_right, color: AppColors.of(context).muted),
+        onTap: onTap,
       );
 }
 
@@ -192,4 +232,91 @@ class _ContactsSyncGroupState extends ConsumerState<_ContactsSyncGroup> {
         ),
     ]);
   }
+}
+
+Future<void> _open(String url) => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+
+Future<void> _share() => SharePlus.instance.share(ShareParams(
+      subject: appFullName,
+      text: 'I use $appName to message my groups by text and email. Get it: ${AppLinks.website}',
+    ));
+
+/// Opens the email app to support, with the app version and system filled in.
+Future<void> _emailSupport() => launchUrl(Uri(
+      scheme: 'mailto',
+      path: AppLinks.supportEmail,
+      query: _encodeQuery({
+        'subject': '$appName support',
+        'body': '\n\n---\n$appName $appVersion · ${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
+      }),
+    ));
+
+// mailto: needs %20 for spaces (Uri.queryParameters would write "+").
+String _encodeQuery(Map<String, String> p) =>
+    p.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&');
+
+/// Asks twice (typing RESET), then empties the app's data and starts over at the welcome screen.
+Future<void> _confirmReset(BuildContext context, WidgetRef ref) async {
+  if (await ref.read(campaignRepositoryProvider).anySending()) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('A campaign is sending. Pause or cancel it before resetting the app.')));
+    }
+    return;
+  }
+  if (!context.mounted) return;
+  final typed = TextEditingController();
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setState) => AlertDialog(
+        title: const Text('Reset $appName?'),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('This erases everything the app keeps and starts it fresh, as if just installed:'),
+            const SizedBox(height: 8),
+            const Text('• campaigns, their history and schedules\n• groups\n• contacts you added or imported from files\n'
+                '• email settings and the Gmail connection\n• your signature and settings'),
+            const SizedBox(height: 8),
+            const Text('Kept: the texts on your phone, your phone\'s contacts, and your Pro subscription.',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 4),
+            const Text('Texts already sent by campaigns stay on the phone but lose their "Campaign" label.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: typed,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(labelText: 'Type RESET to confirm'),
+              onChanged: (_) => setState(() {}),
+            ),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            onPressed: typed.text.trim().toUpperCase() == 'RESET' ? () => Navigator.pop(ctx, true) : null,
+            child: const Text('Reset'),
+          ),
+        ],
+      ),
+    ),
+  );
+  if (ok != true) return;
+  final bg = ref.read(backgroundSendServiceProvider);
+  final gmail = ref.read(gmailAuthProvider);
+  final db = ref.read(databaseProvider);
+  final version = ref.read(dataVersionProvider.notifier);
+  final pro = ref.read(proControllerProvider);
+  try {
+    await gmail.disconnect();
+  } catch (_) {/* not connected, or no Google services */}
+  try {
+    await bg?.scheduleWake(null); // no schedules left to wake up for
+  } catch (_) {}
+  await resetAppData(db);
+  version.state++;
+  await pro.refresh(); // Pro comes back from the store
+  if (context.mounted) context.go('/welcome');
 }

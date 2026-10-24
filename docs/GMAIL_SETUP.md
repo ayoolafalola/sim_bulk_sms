@@ -25,7 +25,8 @@ Create these under APIs & Services › Credentials › Create credentials › OA
 - **Android**: package `com.comeriver.messages` and the **SHA-1** of every key that signs the app:
   - debug (this Mac's key: `4D:F5:91:3A:8B:24:D2:77:2D:42:B6:3A:39:B7:2D:D5:9A:DC:CA:44`): `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android`
   - upload key: `keytool -list -v -keystore <your upload .jks> -alias <alias>`
-  - Play App Signing key: Play Console › Test and release › App integrity › App signing key certificate › SHA-1.
+  - Play App Signing key: Play Console › Protected with Play › Play app signing › App signing key certificate ›
+    SHA-1 (this app: `0A:64:C2:9C:CF:28:28:05:47:C4:05:E4:91:BD:7E:26:5B:A4:C0:6C`).
   (One Android client per SHA-1.)
 - **iOS**: bundle id `com.comeriver.messages`. Note its client id and its **iOS URL scheme**
   (the reversed client id, `com.googleusercontent.apps.…`).

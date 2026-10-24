@@ -16,7 +16,7 @@ class IosSmsService implements SmsCapabilityService {
       platform: SmsPlatform.ios, canSendDirectly: false, usesComposerHandoff: can, canSelectSim: false,
       blocker: DirectSendBlocker.none,
       messageForUser: can
-          ? 'iOS requires you to review and tap Send in the Messages composer for each message.'
+          ? 'Texts open in Messages, where you review them and tap Send.'
           : 'This device cannot send SMS (no cellular/Messages configured).');
   }
 
@@ -42,6 +42,17 @@ class IosSmsService implements SmsCapabilityService {
       }
     } on PlatformException catch (e) {
       return SmsOperationResult(RecipientStatus.unknown, errorCode: e.code, errorMessage: e.message);
+    }
+  }
+
+  /// One composer with several recipients ("send to all at once"). Returns the composer's outcome:
+  /// 'sent' (the user tapped Send), 'cancelled', 'failed', 'unavailable' or 'unsupported'.
+  Future<String> composeMany(List<String> phones, String body) async {
+    try {
+      return await _methods.invokeMethod<String>('presentMessageComposer', {'recipients': phones, 'body': body}) ??
+          'unsupported';
+    } on PlatformException {
+      return 'failed';
     }
   }
 

@@ -7,6 +7,7 @@ class BackgroundStatus {
     required this.batteryUnrestricted, required this.serviceRunning,
     this.telephony = true, this.sms = true, this.smsPermanentlyDenied = false, this.defaultSms = true,
     this.contacts = true, this.contactsPermanentlyDenied = false, this.notificationsPermanentlyDenied = false,
+    this.notificationsConfirmed = true, this.messageNotificationsOff = false,
   });
   final bool notifications, exactAlarms, batteryUnrestricted, serviceRunning;
   /// The phone can send SMS at all (false on Wi-Fi-only tablets).
@@ -16,6 +17,11 @@ class BackgroundStatus {
   final bool defaultSms;
   /// Refused for good: Android no longer shows the prompt; only app settings can turn it on.
   final bool smsPermanentlyDenied, contactsPermanentlyDenied, notificationsPermanentlyDenied;
+  /// Notifications are on by the user's own choice. False when Android 13+ only allowed them because this is
+  /// the default SMS app: they'd go off again if it stopped being the default.
+  final bool notificationsConfirmed;
+  /// The "Messages" notification category (new texts) is turned off in system settings.
+  final bool messageNotificationsOff;
   bool get ready => notifications && exactAlarms && batteryUnrestricted;
 }
 
@@ -60,6 +66,8 @@ class NativeBackgroundSendService implements BackgroundSendService {
       defaultSms: m['defaultSms'] == true,
       contacts: m['contacts'] == true, contactsPermanentlyDenied: m['contactsPermanentlyDenied'] == true,
       notificationsPermanentlyDenied: m['notificationsPermanentlyDenied'] == true,
+      notificationsConfirmed: m['notificationsConfirmed'] != false,
+      messageNotificationsOff: m['messageNotificationsOff'] == true,
     );
   }
 

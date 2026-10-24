@@ -1,8 +1,10 @@
 import Flutter
 import MessageUI
 import UIKit
+import UserNotifications
 
 /// Public MessageUI only. The user must tap Send. Registered in AppDelegate.
+/// Also schedules the local reminders for scheduled campaigns (texts can't be sent in the background on iOS).
 final class MessagingBridge: NSObject, MFMessageComposeViewControllerDelegate {
     private var pending: FlutterResult?
 
@@ -14,6 +16,12 @@ final class MessagingBridge: NSObject, MFMessageComposeViewControllerDelegate {
                 result(["canSendText": MFMessageComposeViewController.canSendText()])
             case "presentMessageComposer":
                 bridge.present(call.arguments as? [String: Any], result)
+            case "requestReminderPermission":
+                UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { ok, _ in
+                    DispatchQueue.main.async { result(ok) }
+                }
+            case "setReminders":
+                MessagingBridge.setReminders(call.arguments as? [[String: Any]] ?? [], result)
             default: result(FlutterMethodNotImplemented)
             }
         }
@@ -44,6 +52,29 @@ final class MessagingBridge: NSObject, MFMessageComposeViewControllerDelegate {
         }
         controller.dismiss(animated: true) { [weak self] in
             self?.pending?(out); self?.pending = nil
+        }
+    }
+
+    /// Replaces all scheduled-campaign reminders with [list]: [{id, at (ms since epoch), title, body}].
+    private static func setReminders(_ list: [[String: Any]], _ result: @escaping FlutterResult) {
+        let center = UNUserNotificationCenter.current()
+        center.getPendingNotificationRequests { pending in
+            center.removePendingNotificationRequests(withIdentifiers:
+                pending.map(\.identifier).filter { $0.hasPrefix("schedule-") })
+            for r in list.prefix(60) {   // iOS keeps at most 64 pending
+                guard let id = r["id"] as? String, let ms = (r["at"] as? NSNumber)?.doubleValue,
+                      let title = r["title"] as? String, let body = r["body"] as? String else { continue }
+                let when = Date(timeIntervalSince1970: ms / 1000)
+                guard when > Date() else { continue }
+                let content = UNMutableNotificationContent()
+                content.title = title
+                content.body = body
+                content.sound = .default
+                let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute, .second], from: when)
+                center.add(UNNotificationRequest(identifier: "schedule-\(id)", content: content,
+                    trigger: UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)))
+            }
+            DispatchQueue.main.async { result(true) }
         }
     }
 

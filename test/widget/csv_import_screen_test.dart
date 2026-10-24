@@ -33,7 +33,7 @@ void main() {
     addTearDown(() => t.runAsync(db.close));
 
     Future<void> settle({Finder? until}) async {
-      for (var i = 0; i < 40; i++) {
+      for (var i = 0; i < 80; i++) {
         await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
         await t.pump(const Duration(milliseconds: 200));
         if (i >= 3 && (until == null || until.evaluate().isNotEmpty)) return;

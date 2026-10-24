@@ -11,6 +11,13 @@ import androidx.core.app.NotificationManagerCompat
 
 /** Ongoing "sending" notification for the foreground service, and result notifications. */
 object Notifications {
+    /** True when the user turned off the "Messages" category (new-text notifications) in system settings. */
+    fun messagesChannelOff(ctx: Context): Boolean {
+        if (Build.VERSION.SDK_INT < 26) return false
+        val ch = ctx.getSystemService(NotificationManager::class.java).getNotificationChannel(CH_MESSAGES) ?: return false
+        return ch.importance == NotificationManager.IMPORTANCE_NONE
+    }
+
     /** Messages++ green: tints the status-bar icon on the notification. */
     private val BRAND = 0xFF1B6B5A.toInt()
 

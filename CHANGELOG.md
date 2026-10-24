@@ -156,3 +156,32 @@
 - Messages-app fallback: when everyone gets the same text (no per-person placeholders), **"20 at once"** puts up to
   20 numbers in one Messages-app message (Samsung: comma-separated, others: semicolons), with a warning that it may
   become a group message; one "Did you send it?" per batch. One at a time stays available.
+
+## Settings › About, Reset app, notification status fix (native changes not yet built)
+- **Notifications were shown as allowed when they weren't.** On Android 13+ the default SMS app gets the
+  notification permission automatically and loses it when it stops being the default, so setup showed it as done
+  without asking you. Now: onboarding asks for notifications **first** (before the default-app step), so it's your own
+  choice and stays; a grant seen only while default doesn't count until confirmed (granted while not default, or
+  set in system settings); the status checks the permission itself plus the app switch; and a turned-off "Messages"
+  notification category is flagged ("Message notifications are turned off" › Open settings).
+- **Settings › About:** Share Messages++ (share sheet, `share_plus`), Website, Privacy policy, Terms of use,
+  Contact support (email with app version and system), Made by Comeriver.
+- **Reset app…** (small link under the version): after typing RESET, erases the app's own data (campaigns, history,
+  schedules, groups, app-added contacts, settings, email and Gmail connection, signature) and starts at the welcome
+  screen. Kept: the phone's texts and contacts, and the Pro subscription (re-read from the store). Refused while a
+  campaign is sending.
+
+## iPhone and iPad readiness (Swift not yet compiled on a device)
+- **Gmail on iPhone/iPad:** iOS OAuth client id built in (`lib/app/google_config.dart`), URL scheme and `GIDClientID`
+  in `Info.plist`.
+- **Project:** iOS 15 pinned in the Podfile; `ITSAppUsesNonExemptEncryption = NO`; Apple privacy manifest
+  (`ios/Runner/PrivacyInfo.xcprivacy`, added to the Xcode project); bundle name Messages++. iPhone **and iPad**
+  (all orientations); on large screens the app keeps a centred reading width.
+- **Each build names only its own platform:** store wording comes from `storeName` (Google Play / the App Store);
+  iPhone/Android mentions removed from shared text; "App setup" (Android permissions) hidden on iPhone/iPad.
+- **Reminders on iPhone/iPad:** a local notification at each upcoming scheduled run (up to 8 per schedule, 60 in
+  all), asked for when you save a schedule; opening the app then goes straight to the prepared run.
+- **"20 at once" on iPhone/iPad:** same-text campaigns can open one Messages composer with up to 20 recipients; the
+  composer reports Sent/Cancelled, so there's no "Did you send it?" question.
+- **App Store screenshots:** iPhone 6.9" and iPad 13" sets in `assets/store/ios/` (`tool/make_screenshots.py`);
+  the Play "Email" image no longer mentions iPhone. Guide: docs/IOS_RELEASE.md.

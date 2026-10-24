@@ -11,6 +11,7 @@ import '../../domain/models/pro.dart';
 import '../../platform/email/email_sender.dart';
 import '../../domain/models/statuses.dart';
 import '../../domain/services/campaign_planner.dart';
+import '../../platform/sms/ios_sms_service.dart';
 import '../../platform/sms/sms_capability_service.dart';
 import '../../domain/services/schedule_calculator.dart';
 import '../../data/repositories/schedule_repository.dart';
@@ -145,7 +146,14 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
       if (!await _sendEmailsHere(emails) || pending.isEmpty) return;
     }
     if (caps.platform == SmsPlatform.ios && caps.usesComposerHandoff) {
-      if (c.status == CampaignStatus.ready &&
+      if (pending.length > 1 && await orch.canBatch(_id)) {
+        final mode = await _chooseBatch();
+        if (mode == 'all') {
+          await _composerBatchNext();
+          return;
+        }
+        if (mode == null) return;
+      } else if (c.status == CampaignStatus.ready &&
           !await _confirm('Start sending?',
               'Messages will open one at a time. You tap Send in Messages for each of the ${pending.length} recipients.',
               'Start')) {
@@ -156,7 +164,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
         final r = await orch.sendNextViaComposer(_id);
         _snack(switch (r) {
           null => 'Nothing left to send.',
-          RecipientStatus.sent => 'Handed to Messages. iOS does not report delivery.',
+          RecipientStatus.sent => 'Handed to Messages. Delivery isn\'t reported on this phone.',
           RecipientStatus.cancelled => 'Not sent: the message was cancelled.',
           _ => 'Not sent.',
         });
@@ -214,22 +222,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
     if (caps.platform == SmsPlatform.android && caps.usesComposerHandoff) {
       // Everyone gets the same text: offer to put up to 20 numbers in one message.
       if (pending.length > 1 && await orch.canBatch(_id)) {
-        if (!mounted) return;
-        final mode = await showDialog<String>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Send through your Messages app'),
-            content: const Text('Automatic sending is off. Everyone gets the same text, so you can send it to up to '
-                '$batchSize people at once, or one person at a time.\n\n'
-                'At once: your Messages app may send it as a group message. Everyone can then see each other\'s '
-                'numbers and replies, and it may cost more (MMS). That depends on your Messages app\'s settings.'),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-              TextButton(onPressed: () => Navigator.pop(ctx, 'one'), child: const Text('One at a time')),
-              FilledButton(onPressed: () => Navigator.pop(ctx, 'all'), child: const Text('$batchSize at once')),
-            ],
-          ),
-        );
+        final mode = await _chooseBatch();
         if (mode == 'all') await _manualBatchNext();
         if (mode == 'one') await _manualNext();
         return;
@@ -249,6 +242,49 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
 
   /// How many numbers go in one Messages-app message when sending to all at once.
   static const batchSize = 20;
+
+  /// "20 at once" or "one at a time" (null = cancel), when everyone gets the same text.
+  Future<String?> _chooseBatch() => showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Send through Messages'),
+          content: const Text('Everyone gets the same text, so you can send it to up to $batchSize people at once, '
+              'or one person at a time.\n\n'
+              'At once: Messages may send it as a group message. Everyone can then see each other\'s numbers and '
+              'replies, and it may cost more (MMS). That depends on your Messages settings.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(ctx, 'one'), child: const Text('One at a time')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, 'all'), child: const Text('$batchSize at once')),
+          ],
+        ),
+      );
+
+  /// iPhone / iPad, all at once: one composer with up to [batchSize] recipients. The composer itself
+  /// reports whether Send was tapped, so there's nothing to ask afterwards.
+  Future<void> _composerBatchNext() async {
+    final orch = ref.read(sendOrchestratorProvider);
+    final composer = ref.read(smsServiceProvider);
+    if (composer is! IosSmsService) return;
+    setState(() => _busy = true);
+    try {
+      final b = await orch.startManualBatch(_id, size: batchSize, platform: 'ios');
+      if (b == null) {
+        _snack('Everyone has been handled.');
+        return;
+      }
+      final res = await composer.composeMany(b.phones, b.body);
+      await orch.finishManualBatch(b.attemptIds, sent: res == 'sent', errorCode: res == 'sent' ? 'composer_sent' : res);
+      _snack(res == 'sent'
+          ? 'Sent to people ${b.from}–${b.to} of ${b.total}.'
+          : 'Not sent to people ${b.from}–${b.to}. You can try again.');
+    } catch (e) {
+      _snack('$e');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+      _refresh();
+    }
+  }
 
   /// Messages-app fallback, all at once: open the next batch, then ask whether it was sent.
   Future<void> _manualBatchNext() async {

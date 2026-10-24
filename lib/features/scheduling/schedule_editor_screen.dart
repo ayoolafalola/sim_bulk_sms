@@ -141,6 +141,8 @@ class _ScheduleEditorScreenState extends ConsumerState<ScheduleEditorScreen> {
 
   Future<void> _save() async {
     setState(() => _saving = true);
+    // iPhone / iPad: runs are announced by a reminder, which needs notification permission.
+    await ref.read(scheduleRemindersProvider)?.requestPermission();
     final pro = await ref.read(settingsRepositoryProvider).loadPro();
     try {
       await ref.read(scheduleRepositoryProvider).save(widget.campaignId, _spec, now: _now(),
@@ -274,7 +276,8 @@ class _ScheduleEditorScreenState extends ConsumerState<ScheduleEditorScreen> {
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Text(ios
-                ? 'iPhone cannot send SMS by itself. When a run is due, open the app and tap Send for each message.'
+                ? 'Texts can\'t be sent automatically on this device. When a run is due you get a reminder: open it and tap '
+                    'Send for each text. Emails in the run go out by themselves.'
                 : isStoreBuild
                     ? 'When a run is due you get a notification. Open the app and send each message through your '
                         'Messages app. A run more than 2 hours late is skipped.'

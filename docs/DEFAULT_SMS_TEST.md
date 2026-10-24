@@ -66,4 +66,25 @@ Your old texts are not touched by switching.
     numbers, tap Send › "20 at once": your Messages app opens with all 3 numbers. Send, come back, "Sent".
     Check whether your Messages app made it a group chat (depends on its settings).
 
+**Settings › About, Reset, notifications**
+
+35. **Fresh install (or Reset app):** the first setup step is **Notifications**: allow it, then make Messages++ the
+    default. Later switch the default back to your old app: Notifications still show as on.
+36. **Messages category off:** Android Settings › Apps › Messages++ › Notifications › turn off "Messages". Back in the
+    app, App setup shows "Message notifications are turned off" with Open settings.
+37. **About:** Share opens the share sheet; Website, Privacy, Terms and Comeriver open in the browser; Contact support
+    opens your email app to messages@comeriver.com with the version filled in.
+38. **Reset app…:** bottom of Settings › type RESET › Reset: the welcome screen appears; campaigns and groups are gone;
+    your texts are still in the Messages tab once it's default again; Pro is still active.
+
+**iPhone / iPad (TestFlight or Xcode)**
+
+39. Settings has no "App setup"; nothing mentions Android or Google Play (Pro says "cancel in the App Store").
+40. Settings › Email › Gmail › Connect Gmail › Send test email.
+41. A same-text campaign to 3 of your numbers › Send › "20 at once": one Messages composer with all 3 › Send.
+    The campaign shows them as Sent. Cancel the composer instead: they stay Waiting/Cancelled to try again.
+42. Schedule a campaign 2 minutes ahead › allow notifications › close the app: a reminder appears; tap it: the
+    campaign opens ready to send.
+43. iPad: the app is centred with margins on a 13" iPad, full width on smaller ones; rotate to landscape.
+
 If anything misbehaves: `adb logcat -s SimBulkSms flutter` while reproducing, and note the step.

@@ -46,8 +46,8 @@ class _AppSetupScreenState extends ConsumerState<AppSetupScreen> with WidgetsBin
       body: bg == null
           ? const Padding(
               padding: EdgeInsets.all(24),
-              child: Text('iPhone cannot send SMS in the background. When a scheduled run is due, '
-                  'open the app and tap Send for each message.'),
+              child: Text('Texts can\'t be sent in the background on this phone. When a scheduled run is due you '
+                  'get a reminder: open it and tap Send for each text. Emails go out by themselves.'),
             )
           : status.when(
               loading: () => const Center(child: CircularProgressIndicator()),

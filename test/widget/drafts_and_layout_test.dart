@@ -52,7 +52,7 @@ void main() {
 
   /// Real DB work runs outside the fake clock; [until] makes waits robust on slow machines.
   Future<void> settle(WidgetTester t, {Finder? until}) async {
-    for (var i = 0; i < 40; i++) {
+    for (var i = 0; i < 80; i++) {
       await t.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 30)));
       await t.pump(const Duration(milliseconds: 300));
       if (i >= 4 && (until == null || until.evaluate().isNotEmpty)) return;

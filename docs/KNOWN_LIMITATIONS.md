@@ -4,7 +4,7 @@
 - Delivery reports depend on the carrier; absence does not mean failure.
 - SIM subscription ids are device-local; phone numbers of SIMs are not read.
 - Segment counts are estimates, not carrier billing.
-- The iOS Swift bridges have never been compiled or run on a device. The Android SMS bridge has been run on one Samsung phone.
+- The iOS app has run on the simulator only; the Swift bridges (composer, contacts, reminders) haven't run on an iPhone or iPad yet.
 - Android composer fallback (system messaging handoff when direct sending is disabled) is not implemented yet.
 - If the process dies while Android callbacks are pending, those messages become `unknown` even if the carrier sent them.
 - Campaigns created before schema v2 have no saved audience: edit them and pick recipients again before scheduling or resending to current members.
@@ -29,3 +29,4 @@
 - On the free app the signature is pre-filled in the Messages-app and iPhone composer; the user can delete it there before sending.
 - App Store subscriptions are written but untested until the iOS app is built and signed.
 - "20 at once" (Messages-app fallback): whether it goes as separate texts or a group MMS is decided by the user's Messages app and its settings; the app can't control or detect it, and records the batch as sent on the user's confirmation. iPhone still sends one at a time.
+- iPhone/iPad: reminders are scheduled from the app's schedules when the app runs; a schedule changed on another device or a reminder dismissed is not re-shown until the app is opened again. iOS keeps at most 64 pending notifications (the app uses up to 60).

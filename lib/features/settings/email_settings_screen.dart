@@ -185,7 +185,7 @@ class _EmailSettingsScreenState extends ConsumerState<EmailSettingsScreen> {
       body: FormPage(
         action: FilledButton(onPressed: _busy ? null : _save, child: const Text('Save')),
         children: [
-          Text('Campaigns can send emails as well as texts. Emails go out by themselves, also on iPhone.',
+          Text('Campaigns can send emails as well as texts. Emails always go out by themselves.',
               style: TextStyle(color: muted)),
           const SectionLabel('Send emails with'),
           SegmentedButton<EmailProvider>(

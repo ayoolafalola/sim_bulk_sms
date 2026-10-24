@@ -1,55 +1,80 @@
-# Google Play store listing (draft)
+# Google Play store listing
 
-- **App name** (max 30): Messages++ by Comeriver
-- **Name on the phone:** Messages++
-- **Category:** Communication · **Tags:** messaging, SMS · **Contains ads:** No · **In-app purchases:** Yes (Comeriver Pro subscription)
-- **Developer:** Comeriver Limited · **Contact email:** messages@comeriver.com · **Website:** https://messages.comeriver.com
-- **Privacy policy:** https://messages.comeriver.com/privacy · **Terms:** https://messages.comeriver.com/terms
+Paste these into Play Console › Grow users › Store presence › **Main store listing**. Play shows the description as
+plain text, so headings are in capitals and bullets are "•".
 
-## Short description (max 80)
+| Field | Value |
+| --- | --- |
+| App name (23/30) | `Messages++ by Comeriver` |
+| Short description (70/80) | `Your texts, plus personalised messages to your groups by SMS or email.` |
+| App icon (512×512) | `assets/icon/play_store_512.png` |
+| Feature graphic (1024×500) | `assets/icon/play_feature_graphic.png` (source: `assets/icon/src/feature_graphic.svg`) |
+| Category | Communication |
+| Tags | Messaging, SMS (pick the closest Play offers) |
+| Contact email | messages@comeriver.com |
+| Website | https://messages.comeriver.com |
+| Privacy policy (App content) | https://messages.comeriver.com/privacy |
+| Contains ads | No |
+| In-app purchases | Yes (Comeriver Pro subscription) |
 
-Your texts, plus personalised messages to your groups by SMS or email.
+Name on the phone: **Messages++**.
 
-## Full description
+## Full description (2403/4000)
 
-Messages++ is your messaging app, with a superpower: send personalised messages to whole groups of your
-contacts, by text from your own SIM or by email, now or on a schedule. Texts come from your number and are billed
-by your carrier as normal SMS. There is no account, no server and no per-message fee from us.
+```
+Messages++ is your everyday messaging app with a superpower: send personalised messages to whole groups of your contacts, by text from your own SIM or by email, right now or on a schedule. Texts come from your own number and are billed by your carrier as normal SMS. No account, no server, no per-message fees.
 
-**Your messages**
-• All your conversations, with notifications you can reply to and mark as read.
-• Start new messages, reply to declined calls with a text, and see which texts came from a campaign.
+YOUR MESSAGES
+• All your conversations in one place, with notifications you can reply to and mark as read.
+• Start new messages, reply to declined calls with a text, and use either SIM on dual-SIM phones.
+• Campaign messages appear in each person's conversation, labelled with the campaign.
 
-**Your contacts, already here**
+YOUR CONTACTS, ALREADY HERE
 • Use your phone's contacts directly: numbers, emails, birthdays and companies, always in sync.
-• Long-press to pick people and add them to groups.
+• Long-press to pick people and add them to groups: a choir, a class, your customers, your team.
+• Import more contacts from a CSV or Excel export.
 
-**Reach your people**
-• Send by text, email, or both; emails go through your Mailgun-compatible service or your Gmail.
-• Import more contacts from a CSV/Excel export, pick the columns, and add everyone to a group.
-• Write once, personalise with {first_name}, {company} and other placeholders, and preview the exact message each person gets.
-• See how many characters and SMS parts each message uses, with a one-tap fix for characters that make SMS shorter.
+REACH YOUR PEOPLE
+• Send by text, by email, or both. Emails go through your Mailgun-compatible service or your Gmail.
+• Write once and personalise with {first_name}, {company}, {birthday} and more.
+• Preview the exact message each person gets, and see how many SMS parts it uses before you send.
 
-**Send safely**
-• Choose a delay between messages and hourly/daily limits so your carrier doesn't block your SIM.
-• Opted-out and suppressed numbers are always left out.
-• Follow every message: sending, sent, delivered (when your carrier reports it), failed — and retry the failed ones.
+ON YOUR SCHEDULE
+• Send once at a set time, or every week on the days you choose (for example Sundays at 8:00).
+• Scheduled campaigns send by themselves, even with the app closed.
+• Send again to the same people, or to everyone in your groups now.
 
-**On your schedule**
-• Send once at a set time, or every week on chosen days (e.g. Sundays at 8:00).
-• Send again to the same people or to everyone in the groups now.
+SEND SAFELY
+• Set a pause between texts and hourly and daily limits, so your SIM stays in good standing.
+• People who opt out are always left out.
+• Follow every message: sending, sent, delivered (when your carrier reports it) or failed, and retry the failed ones.
 
-**Free, or Comeriver Pro**
-• Free: every feature, with "Sent via messages.comeriver.com" at the end of campaign messages, up to 5 saved
-  campaigns, 1 schedule and 50 emails a day.
-• Comeriver Pro (monthly or yearly subscription): unlimited campaigns and schedules, your own email limits, and your
-  own signature or none. Personal messages never carry a signature.
+FREE, OR COMERIVER PRO
+• Free: every feature, with "Sent via messages.comeriver.com" at the end of campaign messages, up to 5 saved campaigns, 1 schedule and 50 emails a day.
+• Comeriver Pro (monthly or yearly subscription): unlimited campaigns and schedules, your own email limits, and your own signature or none.
+• Personal messages never carry a signature.
 
-Your contacts and messages stay on your phone. Standard SMS charges from your carrier apply.
+PRIVATE BY DESIGN
+Your contacts and messages stay on your phone. Messages++ has no account and no server, and shows no ads.
 
-## Graphics to prepare
+Please only message people who have agreed to hear from you. Standard SMS charges from your carrier apply. Picture messages (MMS) are not supported yet.
 
-- App icon 512×512: `assets/icon/play_store_512.png` (made by `tool/make_icon.py`).
-- Feature graphic 1024×500.
-- Phone screenshots (at least 2, ideally 4–8): dashboard, campaign editor with preview and counter, campaign
-  progress, CSV import with column mapping, schedule screen, send settings.
+Messages++ is made by Comeriver Limited and is not affiliated with Google.
+```
+
+## Phone screenshots
+
+Upload `assets/store/screenshot_1.png` … `screenshot_8.png` (1080×1920, in this order). Each is a caption on the brand
+gradient above a phone showing that app screen, drawn in the app's own design with demo data (no real people).
+Regenerate with `python3 tool/make_screenshots.py` (edit the captions and screens in that file).
+
+1. All your texts, plus so much more: Messages tab.
+2. Every campaign reply, right in the chat: a conversation with a campaign message.
+3. Write once. Personalise for all: campaign editor with preview and SMS counter.
+4. Follow every message, live: a campaign sending, SMS and email counts.
+5. Your phone's contacts, already here: Contacts › Groups.
+6. Send on your schedule: weekly schedule.
+7. Text or email. Or both: Settings › Email (Mailgun API).
+8. Free to start. Pro when you grow: Comeriver Pro.
+
+Play requires screenshots to show the app accurately: if a screen changes before launch, update its mockup.

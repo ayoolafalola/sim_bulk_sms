@@ -27,7 +27,7 @@ Future<void> fixSetupItem(WidgetRef ref, SetupItem item, SetupStatus s) async {
       ref.invalidate(capabilitiesProvider);
       return;
     case SetupItem.notifications:
-      if (permanent || !await bg.requestNotifications()) await bg.openNotificationSettings();
+      if (permanent || s.opensSettings(item) || !await bg.requestNotifications()) await bg.openNotificationSettings();
     case SetupItem.exactAlarms:
       await bg.openExactAlarmSettings();
     case SetupItem.battery:
@@ -55,7 +55,8 @@ class SetupItemCard extends ConsumerWidget {
     final ok = status.isOk(item);
     final permanent = status.permanentlyDenied.contains(item);
     final scheme = Theme.of(context).colorScheme;
-    final opensSettings = permanent || item == SetupItem.exactAlarms || item == SetupItem.battery;
+    final opensSettings =
+        permanent || item == SetupItem.exactAlarms || item == SetupItem.battery || status.opensSettings(item);
     final label = item == SetupItem.sms ? 'Make default' : permanent ? 'Open app settings' : opensSettings ? 'Open settings' : 'Allow';
     return Card(
       child: Padding(
@@ -69,6 +70,10 @@ class SetupItemCard extends ConsumerWidget {
               Text(info.title, style: Theme.of(context).textTheme.titleSmall),
               const SizedBox(height: 4),
               Text(info.why),
+              if (!ok && status.notes[item] != null) ...[
+                const SizedBox(height: 4),
+                Text(status.notes[item]!, style: const TextStyle(fontWeight: FontWeight.w600)),
+              ],
               if (!ok && info.ifMissing != null) ...[
                 const SizedBox(height: 4),
                 Text('Without it: ${info.ifMissing}', style: TextStyle(color: scheme.error)),

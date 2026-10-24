@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../app/app_info.dart';
 import '../../app/providers.dart';
 import '../../app/theme.dart';
 import '../../domain/models/pro.dart';
@@ -182,7 +183,7 @@ class _ProScreenState extends ConsumerState<ProScreen> {
             data: (list) => list.isEmpty
                 ? Text(
                     billing == null
-                        ? 'Subscriptions are available in the app from Google Play or the App Store.'
+                        ? 'Subscriptions are available when $appName is installed from $storeName.'
                         : 'Plans couldn\'t be loaded from the store. Check your connection and try again.',
                     style: TextStyle(color: c.muted))
                 : Column(children: [
@@ -197,7 +198,7 @@ class _ProScreenState extends ConsumerState<ProScreen> {
                           ),
                         ),
                       ),
-                    Text('Renews automatically until you cancel in ${defaultTargetPlatform == TargetPlatform.iOS ? 'the App Store' : 'Google Play'}.',
+                    Text('Renews automatically until you cancel in $storeName.',
                         style: TextStyle(color: c.muted, fontSize: 12)),
                   ]),
           ),

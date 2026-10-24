@@ -9,6 +9,7 @@ import '../platform/email/email_sender.dart';
 import '../platform/email/email_senders.dart';
 import '../platform/email/google_gmail_auth.dart';
 import '../platform/messages/messages_service.dart';
+import '../platform/reminders/schedule_reminders.dart';
 import '../platform/sms/android_sms_service.dart';
 import '../platform/sms/ios_sms_service.dart';
 import '../platform/sms/messages_app.dart';
@@ -68,6 +69,9 @@ final setupStatusProvider = FutureProvider<SetupStatus?>((ref) async {
   final b = await ref.watch(backgroundStatusProvider.future);
   return b == null ? null : SetupStatus.fromAndroid(b);
 });
+
+/// iPhone / iPad: local reminders when a scheduled campaign is due. Null on Android (it sends in the background).
+final scheduleRemindersProvider = Provider<ScheduleReminders?>((ref) => Platform.isIOS ? IosScheduleReminders() : null);
 
 /// Android: opens the default Messages app (fallback when direct sending isn't allowed).
 final messagesAppProvider = Provider<MessagesApp?>((ref) => Platform.isAndroid ? NativeMessagesApp() : null);
