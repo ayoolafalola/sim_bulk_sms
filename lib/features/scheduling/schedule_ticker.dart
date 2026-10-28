@@ -55,8 +55,9 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
     final bg = ref.read(backgroundSendServiceProvider);
     if (bg == null) return false;
     try {
-      return await bg.scheduleWake(
-          await nextWakeUp(ref.read(scheduleRepositoryProvider), ref.read(campaignRepositoryProvider)));
+      return await bg.scheduleWake(await nextWakeUp(
+          ref.read(scheduleRepositoryProvider), ref.read(campaignRepositoryProvider),
+          birthdays: ref.read(birthdayRunnerProvider)));
     } catch (e) {
       debugPrint('Could not set the schedule wake-up: $e');
       return false;
@@ -68,7 +69,15 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
     final reminders = ref.read(scheduleRemindersProvider);
     if (reminders == null) return;
     try {
-      await reminders.set(remindersFor(await ref.read(scheduleRepositoryProvider).list(), DateTime.now()));
+      final now = DateTime.now();
+      final birthdays = ref.read(birthdayRunnerProvider);
+      final all = [
+        ...remindersFor(await ref.read(scheduleRepositoryProvider).list(), now),
+        // Birthday wishes (Pro, when on): a reminder on each day with birthdays.
+        if (await birthdays.nextRunAt(now) != null)
+          ...birthdayReminders(await birthdays.upcoming(now), await ref.read(settingsRepositoryProvider).loadBirthdays(), now),
+      ]..sort((a, b) => a.at.compareTo(b.at));
+      await reminders.set(all.take(60).toList());
     } catch (e) {
       debugPrint('Could not set schedule reminders: $e');
     }
@@ -91,6 +100,28 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
     }
   }
 
+  /// Birthday wishes in the app (iPhone / iPad, or Android without the background service): emails go
+  /// now; on iPhone the run then opens, ready for a tap per text.
+  Future<void> _runBirthdays({required bool ios, required bool canAuto}) async {
+    final b = await ref.read(birthdayRunnerProvider).runDue(DateTime.now(), platform: ios ? 'ios' : 'android');
+    final id = b.campaignId;
+    if (id == null) return;
+    ref.read(dataVersionProvider.notifier).state++;
+    _say('Birthday wishes: ${b.people} ${b.people == 1 ? 'birthday' : 'birthdays'} today.');
+    final orch = ref.read(sendOrchestratorProvider);
+    try {
+      if (canAuto) {
+        await orch.runAndroid(id);
+      } else {
+        await orch.runEmails(id);
+      }
+    } catch (e) {
+      debugPrint('Birthday wishes not sent automatically: $e');
+    }
+    ref.read(dataVersionProvider.notifier).state++;
+    if (ios && b.texts > 0) appRouter.go('/campaigns/$id');
+  }
+
   void _say(String m) {
     if (mounted) ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(m)));
   }
@@ -105,7 +136,8 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
         await _syncWake();
         final now = DateTime.now();
         final due = (await ref.read(scheduleRepositoryProvider).due(now)).isNotEmpty ||
-            (await ref.read(campaignRepositoryProvider).dueResumes(now)).isNotEmpty;
+            (await ref.read(campaignRepositoryProvider).dueResumes(now)).isNotEmpty ||
+            await ref.read(birthdayRunnerProvider).isDue(now);
         if (due && !(await bg.status()).serviceRunning) {
           await bg.checkNow();
         }
@@ -117,6 +149,7 @@ class _ScheduleTickerState extends ConsumerState<ScheduleTicker> with WidgetsBin
       } catch (_) {/* treated as "can't send automatically" */}
       final ios = caps?.platform == SmsPlatform.ios;
       final canAuto = caps != null && caps.platform == SmsPlatform.android && caps.canSendDirectly;
+      await _runBirthdays(ios: ios, canAuto: canAuto);
       final results = await ref
           .read(scheduleRunnerProvider)
           .runDue(DateTime.now(), platform: ios ? 'ios' : 'android', canAutoSend: canAuto);

@@ -172,6 +172,7 @@ class _ProScreenState extends ConsumerState<ProScreen> {
               row('Schedules', '${FreeLimits.schedules}', 'Unlimited'),
               row('Emails a day', '${FreeLimits.emailsPerDay}', 'Your own limit'),
               row('Signature on campaigns', '"$freeSignature"', 'Yours, or none'),
+              row('Birthday wishes', '—', 'Automatic'),
             ]),
           ),
         ),

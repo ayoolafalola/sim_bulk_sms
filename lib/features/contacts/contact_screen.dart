@@ -8,6 +8,7 @@ import '../../domain/models/contact.dart';
 import '../../domain/models/statuses.dart';
 import '../common/page_layout.dart';
 import '../common/ui.dart';
+import 'birthday_field.dart';
 
 final _detailsProvider = FutureProvider.family<({ContactDetails? d, List<String> groups}), int>((ref, id) async {
   ref.watch(dataVersionProvider);
@@ -241,8 +242,8 @@ class _Body extends ConsumerWidget {
 
   Future<void> _editAppContact(BuildContext context, WidgetRef ref) async {
     final name = TextEditingController(text: c.name), phone = TextEditingController(text: c.phoneRaw),
-        email = TextEditingController(text: c.email ?? ''), birthday = TextEditingController(text: c.birthday ?? ''),
-        company = TextEditingController(text: c.organization ?? '');
+        email = TextEditingController(text: c.email ?? ''), company = TextEditingController(text: c.organization ?? '');
+    String? birthday = c.birthday;
     final normalizer = ref.read(phoneNormalizerProvider);
     String? error;
     final saved = await showModalBottomSheet<bool>(
@@ -265,8 +266,7 @@ class _Body extends ConsumerWidget {
               const SizedBox(height: 12),
               TextField(controller: company, decoration: const InputDecoration(labelText: 'Company')),
               const SizedBox(height: 12),
-              TextField(controller: birthday, keyboardType: TextInputType.datetime,
-                  decoration: const InputDecoration(labelText: 'Birthday (YYYY-MM-DD)')),
+              BirthdayField(value: birthday, onChanged: (v) => setSheet(() => birthday = v)),
               const SizedBox(height: 20),
               FilledButton(
                 onPressed: () async {
@@ -285,7 +285,7 @@ class _Body extends ConsumerWidget {
                         phoneRaw: phone.text.trim(), phoneNormalized: n?.e164,
                         email: email.text.trim().isEmpty ? null : email.text.trim(),
                         organization: company.text.trim().isEmpty ? null : company.text.trim(),
-                        birthday: birthday.text.trim().isEmpty ? null : birthday.text.trim(),
+                        birthday: birthday,
                       ));
                   } on DuplicateContactException {
                     setSheet(() => error = 'Another contact already has this number.');

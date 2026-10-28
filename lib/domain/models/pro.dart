@@ -11,6 +11,8 @@ enum ProFeature {
   unlimitedSchedules,
   /// More than [FreeLimits.emailsPerDay] emails a day.
   unlimitedEmail,
+  /// Automatic birthday messages.
+  birthdayWishes,
 }
 
 /// Limits of the free app.

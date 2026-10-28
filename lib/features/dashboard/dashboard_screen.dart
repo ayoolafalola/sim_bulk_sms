@@ -13,6 +13,7 @@ import '../../platform/sms/sms_capability_service.dart';
 import '../campaigns/campaign_labels.dart';
 import '../common/page_layout.dart';
 import '../common/ui.dart';
+import '../birthdays/birthday_wishes_screen.dart';
 import '../setup/setup_banner.dart';
 
 /// The Campaigns tab (home): this week at a glance, what's scheduled, drafts
@@ -51,6 +52,7 @@ class DashboardScreen extends ConsumerWidget {
               const TabTitle('Campaigns'),
               if (setup != null && !setup.complete) SetupBanner(missing: setup.missingRequired),
               if (caps != null && !caps.canSendDirectly) _CapabilityNote(caps),
+              const _BirthdayCard(),
               if (nothingYet)
                 _Welcome(contacts: s.contacts)
               else ...[
@@ -272,6 +274,40 @@ class _CapabilityNote extends StatelessWidget {
               style: TextStyle(color: colors.infoFg)),
         ),
       ]),
+    );
+  }
+}
+
+/// Birthday wishes at a glance: on or off, and who's next.
+class _BirthdayCard extends ConsumerWidget {
+  const _BirthdayCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final s = ref.watch(birthdaySettingsProvider).valueOrNull;
+    final pro = ref.watch(proStatusProvider).valueOrNull?.isPro() ?? false;
+    final next = (ref.watch(upcomingBirthdaysProvider).valueOrNull ?? const []).firstOrNull;
+    final on = (s?.enabled ?? false) && pro;
+    final c = AppColors.of(context);
+    final now = DateTime.now();
+    String? nextText;
+    if (next != null) {
+      final today = next.on.year == now.year && next.on.month == now.month && next.on.day == now.day;
+      nextText = '${next.contact.name}, ${today ? 'today' : '${next.on.day}/${next.on.month}'}';
+    }
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: ListTile(
+        leading: Icon(Icons.cake_outlined, color: Theme.of(context).colorScheme.primary),
+        title: const Text('Birthday wishes'),
+        subtitle: Text(on
+            ? 'On${nextText == null ? '' : ' · next: $nextText'}'
+            : 'An automatic message on each person\'s birthday'),
+        trailing: on
+            ? const StatusTag('On', tone: Tone.success)
+            : pro ? Icon(Icons.chevron_right, color: c.muted) : const StatusTag('Pro', tone: Tone.info),
+        onTap: () => context.push('/birthdays'),
+      ),
     );
   }
 }

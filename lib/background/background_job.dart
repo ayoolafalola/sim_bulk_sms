@@ -11,6 +11,7 @@ import '../features/scheduling/schedule_runner.dart';
 import '../features/sms_sending/send_orchestrator.dart';
 import '../platform/email/email_sender.dart';
 import '../platform/sms/sms_capability_service.dart';
+import '../features/birthdays/birthday_runner.dart';
 import 'background_host.dart';
 
 /// How long the service waits after the last message for sent/delivery
@@ -23,7 +24,7 @@ const deliveryWait = Duration(minutes: 2);
 class BackgroundJob {
   BackgroundJob({
     required this.host, required this.sms, required this.orchestrator, required this.runner,
-    required this.campaigns, required this.schedules,
+    required this.campaigns, required this.schedules, this.birthdays,
     DateTime Function()? clock, Future<void> Function(Duration)? sleep,
     this.pollEvery = const Duration(seconds: 2), this.waitForCallbacks = deliveryWait,
   })  : _clock = clock ?? DateTime.now,
@@ -35,6 +36,8 @@ class BackgroundJob {
   final ScheduleRunner runner;
   final CampaignRepository campaigns;
   final ScheduleRepository schedules;
+  /// Birthday wishes (Comeriver Pro); null where not wired up (some tests).
+  final BirthdayRunner? birthdays;
   final Duration pollEvery, waitForCallbacks;
   final DateTime Function() _clock;
   final Future<void> Function(Duration) _sleep;
@@ -51,7 +54,7 @@ class BackgroundJob {
         }
         continue;
       }
-      await host.scheduleWake(await nextWakeUp(schedules, campaigns));
+      await host.scheduleWake(await nextWakeUp(schedules, campaigns, birthdays: birthdays, now: _clock()));
       if (await host.finish()) return;
     }
   }
@@ -61,6 +64,7 @@ class BackgroundJob {
     for (final id in await campaigns.dueResumes(_clock())) {
       await _send(id);
     }
+    await _runBirthdays();
     // One run at a time; keep going while runs are due (bounded for safety).
     for (var i = 0; i < 20; i++) {
       bool canAuto;
@@ -88,6 +92,28 @@ class BackgroundJob {
       }
       if (!sent) return;
     }
+  }
+
+  /// Today's birthday wishes, if it's time: sent like any campaign; without automatic texting the
+  /// emails go now and the texts wait for you.
+  Future<void> _runBirthdays() async {
+    final b = await birthdays?.runDue(_clock(), platform: 'android');
+    if (b == null || b.campaignId == null) return;
+    bool canAuto;
+    try {
+      canAuto = (await sms.getCapabilities()).canSendDirectly;
+    } catch (_) {
+      canAuto = false;
+    }
+    if (canAuto || b.texts == 0) {
+      await _send(b.campaignId!);
+      return;
+    }
+    try {
+      await orchestrator.runEmails(b.campaignId!);
+    } catch (_) {/* email not set up: the texts still wait for you */}
+    await host.notifyResult('Birthday wishes',
+        '${b.people} ${b.people == 1 ? 'birthday' : 'birthdays'} today. Open Messages++ to send the texts.');
   }
 
   Future<void> _send(int campaignId, {int? subscriptionId}) async {

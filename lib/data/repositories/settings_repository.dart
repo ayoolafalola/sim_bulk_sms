@@ -1,4 +1,5 @@
 import 'package:sqflite/sqflite.dart';
+import '../../domain/models/birthday_settings.dart';
 import '../../domain/models/email_settings.dart';
 import '../../domain/models/pro.dart';
 import '../../domain/models/send_settings.dart';
@@ -75,4 +76,7 @@ class SettingsRepository {
 
   /// The signature campaign texts and emails get right now (null = none).
   Future<String?> signature() async => campaignSignature(await loadPro(), custom: await customSignature());
+
+  Future<BirthdaySettings> loadBirthdays() async => BirthdaySettings.fromJson(await _get('birthday_wishes'));
+  Future<void> saveBirthdays(BirthdaySettings s) => _set('birthday_wishes', s.toJson());
 }

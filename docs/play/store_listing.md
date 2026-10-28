@@ -19,7 +19,7 @@ plain text, so headings are in capitals and bullets are "•".
 
 Name on the phone: **Messages++**.
 
-## Full description (2403/4000)
+## Full description (2430/4000)
 
 ```
 Messages++ is your everyday messaging app with a superpower: send personalised messages to whole groups of your contacts, by text from your own SIM or by email, right now or on a schedule. Texts come from your own number and are billed by your carrier as normal SMS. No account, no server, no per-message fees.
@@ -51,7 +51,7 @@ SEND SAFELY
 
 FREE, OR COMERIVER PRO
 • Free: every feature, with "Sent via messages.comeriver.com" at the end of campaign messages, up to 5 saved campaigns, 1 schedule and 50 emails a day.
-• Comeriver Pro (monthly or yearly subscription): unlimited campaigns and schedules, your own email limits, and your own signature or none.
+• Comeriver Pro (monthly or yearly subscription): unlimited campaigns and schedules, automatic birthday wishes, your own email limits, and your own signature or none.
 • Personal messages never carry a signature.
 
 PRIVATE BY DESIGN

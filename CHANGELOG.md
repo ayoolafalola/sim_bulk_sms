@@ -185,3 +185,17 @@
   composer reports Sent/Cancelled, so there's no "Did you send it?" question.
 - **App Store screenshots:** iPhone 6.9" and iPad 13" sets in `assets/store/ios/` (`tool/make_screenshots.py`);
   the Play "Email" image no longer mentions iPhone. Guide: docs/IOS_RELEASE.md.
+
+## Birthdays and email-only import (not yet analyzed or tested: waiting for permission to run Flutter)
+- **Birthdays collected everywhere:** a Birthday field (day, month, optional year) when adding a contact and when
+  editing an app contact; a Birthday column in CSV import (headers like Birthday / Date of birth / DOB, or picked),
+  reading `1990-05-17`, `17/05/1990`, `17 May 1990`, `17 May`… (day first; month first when the country is US).
+  Phone contacts already sync theirs.
+- **Email-only contacts from CSV:** the phone column is optional when there's an email column; rows with only a
+  valid email are imported as email-only contacts; duplicates checked by email too; "N email-only" in the summary.
+- **Birthday wishes (Comeriver Pro):** Campaigns › Birthday wishes: on/off, Send by, message with placeholders,
+  time of day (default 08:00), everyone or chosen groups, and the next 30 days of birthdays. Each day at that time,
+  today's birthdays (29 Feb → 28 Feb in other years) get one campaign run "Birthday wishes · 17 May" through the
+  usual pipeline (opt-outs, limits, signature, history). Nobody is wished twice a year. Android sends in the
+  background (alarm wakes for it); iPhone/iPad get a reminder and the run opens ready, emails go by themselves.
+  Schema v9 (`birthday_wishes`). Without Pro, the screen works but nothing is sent.

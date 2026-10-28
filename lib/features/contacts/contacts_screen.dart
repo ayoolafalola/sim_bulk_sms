@@ -14,6 +14,7 @@ import '../../domain/models/statuses.dart';
 import '../common/page_layout.dart';
 import '../common/ui.dart';
 import '../groups/groups_screen.dart';
+import 'birthday_field.dart';
 import 'contact_sync_runner.dart';
 import 'csv_import_screen.dart';
 
@@ -350,14 +351,15 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
     final name = TextEditingController(), phone = TextEditingController(), email = TextEditingController();
     final normalizer = ref.read(phoneNormalizerProvider);
     final repo = ref.read(contactRepositoryProvider);
-    String? phoneError;
+    String? phoneError, birthday;
     final saved = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setSheet) => Padding(
           padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.viewInsetsOf(ctx).bottom),
-          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Text('Add contact', style: Theme.of(ctx).textTheme.titleLarge),
             const SizedBox(height: 16),
             TextField(
@@ -375,6 +377,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                 controller: email,
                 keyboardType: TextInputType.emailAddress,
                 decoration: const InputDecoration(labelText: 'Email')),
+            const SizedBox(height: 12),
+            BirthdayField(value: birthday, onChanged: (v) => setSheet(() => birthday = v)),
             const SizedBox(height: 20),
             FilledButton(
               onPressed: () async {
@@ -393,7 +397,8 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
                       name: name.text.trim(),
                       phoneRaw: phone.text.trim(),
                       phoneNormalized: n?.e164,
-                      email: email.text.trim().isEmpty ? null : email.text.trim()));
+                      email: email.text.trim().isEmpty ? null : email.text.trim(),
+                      birthday: birthday));
                   if (ctx.mounted) Navigator.pop(ctx, true);
                 } on DuplicateContactException {
                   setSheet(() => phoneError = 'A contact with this number already exists.');
@@ -402,6 +407,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
               child: const Text('Save'),
             ),
           ]),
+          ),
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../features/campaigns/campaign_detail_screen.dart';
 import '../features/campaigns/campaign_editor_screen.dart';
+import '../features/birthdays/birthday_wishes_screen.dart';
 import '../features/contacts/contact_screen.dart';
 import '../features/pro/pro_screen.dart';
 import '../features/settings/email_settings_screen.dart';
@@ -52,6 +53,10 @@ final appRouter = GoRouter(navigatorKey: rootNavigatorKey, initialLocation: '/me
       ]),
       StatefulShellBranch(routes: [
         GoRoute(path: '/', builder: (c, s) => const DashboardScreen(), routes: [
+          GoRoute(
+              path: 'birthdays',
+              parentNavigatorKey: rootNavigatorKey,
+              builder: (c, s) => const BirthdayWishesScreen()),
           GoRoute(
               path: 'campaigns/new',
               parentNavigatorKey: rootNavigatorKey,

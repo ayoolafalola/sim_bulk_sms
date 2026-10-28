@@ -17,6 +17,6 @@ personalised messages to groups.
    required to review the app.
 7. **Comeriver Pro** (Settings › Comeriver Pro) is optional: the free app is fully usable. Pro removes the
    "Sent via messages.comeriver.com" line from campaign messages and lifts the free limits (5 saved campaigns,
-   1 schedule, 50 emails a day). Personal messages never carry the line.
+   1 schedule, 50 emails a day) and adds automatic birthday wishes. Personal messages never carry the line.
 
 Standard SMS charges apply to messages sent from the test device's SIM.

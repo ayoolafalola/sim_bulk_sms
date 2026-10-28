@@ -33,7 +33,7 @@ Then open `build/ios/archive/Runner.xcarchive` in Xcode (or use the Transporter 
 | Copyright | 2026 Comeriver Limited |
 | Age rating | 4+ (no objectionable content; answer "No" throughout) |
 
-### Description (1806/4000)
+### Description (1833/4000)
 
 ```
 Messages++ lets you send personalised messages to whole groups of your contacts, by text or by email, now or on a schedule. Texts go from your own number through Messages; emails go out by themselves through your own email service. No account, no server, no per-message fees.
@@ -59,7 +59,7 @@ SEND SAFELY
 
 FREE, OR COMERIVER PRO
 • Free: every feature, with "Sent via messages.comeriver.com" at the end of campaign messages, up to 5 saved campaigns, 1 schedule and 50 emails a day.
-• Comeriver Pro (monthly or yearly subscription): unlimited campaigns and schedules, your own email limits, and your own signature or none.
+• Comeriver Pro (monthly or yearly subscription): unlimited campaigns and schedules, automatic birthday wishes, your own email limits, and your own signature or none.
 
 PRIVATE BY DESIGN
 Your contacts and messages stay on your device. Messages++ has no account and no server, and shows no ads.

@@ -7,12 +7,14 @@ import '../data/repositories/group_repository.dart';
 import '../data/repositories/schedule_repository.dart';
 import '../data/repositories/settings_repository.dart';
 import '../domain/models/campaign.dart';
+import '../domain/models/birthday_settings.dart';
 import '../domain/models/contact.dart';
 import '../domain/models/email_settings.dart';
 import '../domain/models/pro.dart';
 import '../domain/models/schedule.dart';
 import '../domain/models/send_settings.dart';
 import '../domain/models/statuses.dart';
+import '../features/birthdays/birthday_runner.dart';
 import '../features/campaigns/campaign_composer.dart';
 import '../features/scheduling/schedule_runner.dart';
 import '../platform/contacts/phone_contacts_service.dart';
@@ -138,6 +140,17 @@ final sendSettingsProvider = FutureProvider<SendSettings>((ref) {
 final emailSettingsProvider = FutureProvider<EmailSettings>((ref) {
   ref.watch(dataVersionProvider);
   return ref.watch(settingsRepositoryProvider).loadEmail();
+});
+
+final birthdayRunnerProvider = Provider((ref) => BirthdayRunner(
+      db: ref.watch(databaseProvider), settings: ref.watch(settingsRepositoryProvider),
+      contacts: ref.watch(contactRepositoryProvider), groups: ref.watch(groupRepositoryProvider),
+      campaigns: ref.watch(campaignRepositoryProvider),
+    ));
+
+final birthdaySettingsProvider = FutureProvider<BirthdaySettings>((ref) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(settingsRepositoryProvider).loadBirthdays();
 });
 
 final proStatusProvider = FutureProvider<ProStatus>((ref) {

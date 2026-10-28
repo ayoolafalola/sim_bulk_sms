@@ -58,6 +58,7 @@ class ContactRepository {
     try {
       return await _db.insert('contacts', {
         'name': c.name, 'phone_raw': c.phoneRaw, 'phone_normalized': c.phoneNormalized, 'email': c.email,
+        'birthday': c.birthday, 'organization': c.organization,
         'consent_status': consentToDb(c.consent),
         'consent_updated_at': c.consent == ConsentStatus.unknown ? null : now,
         'created_at': now, 'updated_at': now,
@@ -157,6 +158,12 @@ class ContactRepository {
     return rows.map((r) => r['phone_normalized'] as String).toSet();
   }
 
+  /// Emails of saved contacts, lower case (an email-only row matching one isn't imported again).
+  Future<Set<String>> existingEmails() async => {
+        for (final r in await _db.rawQuery("SELECT LOWER(TRIM(email)) AS e FROM contacts WHERE email IS NOT NULL AND email <> ''"))
+          r['e'] as String,
+      };
+
   /// Commits ONLY the `valid` rows of a confirmed plan in a single transaction.
   /// Any failure rolls back everything (no partial import). Returns rows inserted.
   Future<int> commitImport(ImportPlan plan) async => (await commitImportToGroup(plan)).added;
@@ -172,7 +179,9 @@ class ContactRepository {
         final ids = <int>[];
         for (final r in plan.importable) {
           ids.add(await txn.insert('contacts', {
-            'name': r.name, 'phone_raw': r.phoneRaw, 'phone_normalized': r.e164, 'email': r.email,
+            // Email-only rows keep no (invalid) number.
+            'name': r.name, 'phone_raw': r.e164 == null ? '' : r.phoneRaw, 'phone_normalized': r.e164,
+            'email': r.email, 'birthday': r.birthday,
             'consent_status': 'unknown', 'created_at': now, 'updated_at': now,
           }));
         }
@@ -183,7 +192,10 @@ class ContactRepository {
         }
         if (gid == null) return ImportResult(added: added);
         for (final r in plan.existing) {
-          final rows = await txn.query('contacts', columns: ['id'], where: 'phone_normalized = ?', whereArgs: [r.e164]);
+          final rows = r.e164 != null
+              ? await txn.query('contacts', columns: ['id'], where: 'phone_normalized = ?', whereArgs: [r.e164])
+              : await txn.query('contacts', columns: ['id'],
+                  where: 'LOWER(TRIM(email)) = ?', whereArgs: [r.email!.trim().toLowerCase()]);
           if (rows.isNotEmpty) ids.add(rows.first['id'] as int);
         }
         final b = txn.batch();

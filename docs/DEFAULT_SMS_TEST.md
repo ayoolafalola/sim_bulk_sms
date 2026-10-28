@@ -87,4 +87,13 @@ Your old texts are not touched by switching.
     campaign opens ready to send.
 43. iPad: the app is centred with margins on a 13" iPad, full width on smaller ones; rotate to landscape.
 
+**Birthdays and email-only import**
+
+44. Add contact: set a Birthday (day and month, no year) › save › the contact screen shows it.
+45. Import a CSV with Name, Email, Birthday columns (no phone): rows import as email-only contacts with birthdays;
+    the summary shows "N email-only" and how many birthdays were read.
+46. Campaigns › Birthday wishes: without Pro the switch offers Pro. With Pro (or Pretend Pro): turn on, set the time
+    2 minutes ahead, give a test contact today's birthday › at that time a "Birthday wishes · <date>" campaign is sent
+    (Android) or a reminder appears (iPhone). Changing the time back doesn't send a second one today.
+
 If anything misbehaves: `adb logcat -s SimBulkSms flutter` while reproducing, and note the step.

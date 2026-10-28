@@ -8,6 +8,7 @@ import '../data/repositories/contact_repository.dart';
 import '../data/repositories/group_repository.dart';
 import '../data/repositories/schedule_repository.dart';
 import '../data/repositories/settings_repository.dart';
+import '../features/birthdays/birthday_runner.dart';
 import '../features/campaigns/campaign_composer.dart';
 import '../features/scheduling/schedule_runner.dart';
 import '../features/sms_sending/send_orchestrator.dart';
@@ -43,6 +44,8 @@ Future<void> backgroundMain() async {
     await BackgroundJob(
       host: host, sms: sms, orchestrator: orchestrator, campaigns: campaigns, schedules: schedules,
       runner: ScheduleRunner(schedules: schedules, campaigns: campaigns, composer: composer, proStatus: settings.loadPro),
+      birthdays: BirthdayRunner(db: db, settings: settings, contacts: ContactRepository(db), groups: GroupRepository(db),
+          campaigns: campaigns),
     ).run();
   } catch (e, st) {
     debugPrint('Background sending failed: $e\n$st');

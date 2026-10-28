@@ -23,17 +23,20 @@ const maxImportRows = 20000;
 const _backgroundThreshold = 3000;
 
 class _PlanJob {
-  const _PlanJob(this.table, this.mapping, this.region, this.existing, this.hasHeader, this.useNumberAsName);
+  const _PlanJob(this.table, this.mapping, this.region, this.existing, this.existingEmails, this.hasHeader,
+      this.useNumberAsName);
   final List<List<String>> table;
   final ColumnMapping mapping;
   final String region;
-  final Set<String> existing;
+  final Set<String> existing, existingEmails;
   final bool hasHeader, useNumberAsName;
 }
 
 ImportPlan _runPlan(_PlanJob j) => planImport(
     table: j.table, mapping: j.mapping, normalizer: PhoneNormalizer(j.region), existingNormalized: j.existing,
-    hasHeader: j.hasHeader, useNumberAsName: j.useNumberAsName);
+    existingEmails: j.existingEmails, hasHeader: j.hasHeader, useNumberAsName: j.useNumberAsName,
+    // Numeric birthdays are month first only in the US (05/17).
+    monthFirst: j.region == 'US');
 
 String columnLetter(int i) {
   var n = i + 1, s = '';
@@ -47,9 +50,11 @@ String columnLetter(int i) {
 
 String importRowReason(ImportRow r) => switch (r.status) {
       ImportRowStatus.valid => 'OK',
-      ImportRowStatus.invalidPhone => r.phoneRaw.isEmpty ? 'No phone number' : 'Not a valid number',
+      ImportRowStatus.invalidPhone => r.phoneRaw.isNotEmpty
+          ? 'Not a valid number'
+          : r.email == null ? 'No phone number or email' : 'Not a valid email address',
       ImportRowStatus.missingName => 'No name',
-      ImportRowStatus.duplicateInFile => 'Same number earlier in the file',
+      ImportRowStatus.duplicateInFile => 'Same number or email earlier in the file',
       ImportRowStatus.duplicateExisting => 'Already in your contacts',
     };
 
@@ -71,7 +76,7 @@ class _CsvImportScreenState extends ConsumerState<CsvImportScreen> {
   ColumnMapping? _mapping;
   bool _splitName = false;
   bool _useNumberAsName = false;
-  Set<String> _existing = const {};
+  Set<String> _existing = const {}, _existingEmails = const {};
   ImportPlan? _plan;
   int _planSeq = 0;
   int? _groupId;           // existing group, or null
@@ -97,6 +102,7 @@ class _CsvImportScreenState extends ConsumerState<CsvImportScreen> {
             'split the file and import each part.');
       }
       _existing = await ref.read(contactRepositoryProvider).existingNormalized();
+      _existingEmails = await ref.read(contactRepositoryProvider).existingEmails();
       _delimiter = detectDelimiter(text);
       _table = table;
       _hasHeader = ColumnMapping.looksLikeHeader(table.first, _normalizer);
@@ -115,12 +121,13 @@ class _CsvImportScreenState extends ConsumerState<CsvImportScreen> {
 
   Future<void> _replan() async {
     final table = _table, mapping = _mapping;
-    if (table == null || mapping == null) {
+    if (table == null || mapping == null || !mapping.hasContactColumn) {
       if (mounted) setState(() => _plan = null);
       return;
     }
     final seq = ++_planSeq;
-    final job = _PlanJob(table, mapping, ref.read(defaultRegionProvider), _existing, _hasHeader, _useNumberAsName);
+    final job = _PlanJob(
+        table, mapping, ref.read(defaultRegionProvider), _existing, _existingEmails, _hasHeader, _useNumberAsName);
     final plan = table.length > _backgroundThreshold ? await compute(_runPlan, job) : _runPlan(job);
     if (mounted && seq == _planSeq) setState(() => _plan = plan);
   }
@@ -262,7 +269,7 @@ class _CsvImportScreenState extends ConsumerState<CsvImportScreen> {
           if (m == null)
             Padding(
               padding: const EdgeInsets.only(top: 8),
-              child: Text('No column looks like phone numbers. Pick the phone column below.',
+              child: Text('No column looks like phone numbers or emails. Pick the columns below.',
                   style: TextStyle(color: scheme.error)),
             ),
           SwitchListTile(
@@ -283,11 +290,18 @@ class _CsvImportScreenState extends ConsumerState<CsvImportScreen> {
             _columnPicker('Last name', m?.lastName, (v) => _setMapping(m!.copyWith(lastName: () => v))),
           ] else
             _columnPicker('Name', m?.name, (v) => m == null ? null : _setMapping(m.copyWith(name: () => v))),
-          _columnPicker('Phone number', m?.phone, optional: false, (v) {
-            if (v == null) return;
-            _setMapping(m == null ? ColumnMapping(phone: v) : m.copyWith(phone: v));
-          }),
-          _columnPicker('Email (optional)', m?.email, (v) => m == null ? null : _setMapping(m.copyWith(email: () => v))),
+          // Phone, email or both: rows with only a valid email become email-only contacts.
+          _columnPicker('Phone number', m?.phone,
+              (v) => _setMapping(m == null ? ColumnMapping(phone: v) : m.copyWith(phone: () => v))),
+          _columnPicker('Email', m?.email,
+              (v) => _setMapping(m == null ? ColumnMapping(email: v) : m.copyWith(email: () => v))),
+          _columnPicker('Birthday (optional)', m?.birthday,
+              (v) => m == null ? null : _setMapping(m.copyWith(birthday: () => v))),
+          if (m != null && !m.hasContactColumn)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text('Pick a phone or an email column.', style: TextStyle(color: scheme.error)),
+            ),
           const SizedBox(height: 16),
           if (plan != null) ...[
             Card(
@@ -299,10 +313,22 @@ class _CsvImportScreenState extends ConsumerState<CsvImportScreen> {
                   Text([
                     if (plan.existing.isNotEmpty) '${plan.existing.length} already in your contacts',
                     if (plan.repeatedInFile > 0) '${plan.repeatedInFile} repeated in the file',
-                    if (plan.invalidPhones > 0) '${plan.invalidPhones} invalid numbers',
+                    if (plan.emailOnlyCount > 0) '${plan.emailOnlyCount} email-only',
+                    if (plan.invalidPhones > 0)
+                      m?.email == null
+                          ? '${plan.invalidPhones} invalid numbers'
+                          : '${plan.invalidPhones} without a valid number or email',
                     if (plan.missingNames > 0) '${plan.missingNames} without a name',
                     if (plan.skippedBlank > 0) '${plan.skippedBlank} blank rows',
                   ].join(' · ')),
+                  if (plan.birthdaysFound > 0 || plan.birthdaysUnreadable > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text([
+                        if (plan.birthdaysFound > 0) '${plan.birthdaysFound} birthdays',
+                        if (plan.birthdaysUnreadable > 0) '${plan.birthdaysUnreadable} birthdays couldn\'t be read (left empty)',
+                      ].join(' · ')),
+                    ),
                   if (plan.multiNumberCount > 0)
                     Padding(
                       padding: const EdgeInsets.only(top: 4),
@@ -333,7 +359,9 @@ class _CsvImportScreenState extends ConsumerState<CsvImportScreen> {
                         color: r.status == ImportRowStatus.valid ? scheme.primary : scheme.outline,
                       ),
                       title: Text(r.name.isEmpty ? '(no name)' : r.name),
-                      subtitle: Text(r.status == ImportRowStatus.valid ? r.e164! : '${r.phoneRaw} · ${importRowReason(r)}'),
+                      subtitle: Text(r.status == ImportRowStatus.valid
+                          ? (r.e164 ?? r.email ?? '')
+                          : '${r.phoneRaw.isEmpty ? (r.email ?? '') : r.phoneRaw} · ${importRowReason(r)}'),
                     ),
                 ]),
               ),
