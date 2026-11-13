@@ -177,4 +177,9 @@ object MessageStore {
     fun markDelivered(ctx: Context, row: Uri) = update(ctx, row, ContentValues().apply {
         put(Telephony.Sms.STATUS, Telephony.Sms.STATUS_COMPLETE)
     })
+
+    /** Sent, but the carrier reports it could not be delivered. */
+    fun markNotDelivered(ctx: Context, row: Uri) = update(ctx, row, ContentValues().apply {
+        put(Telephony.Sms.STATUS, Telephony.Sms.STATUS_FAILED)
+    })
 }

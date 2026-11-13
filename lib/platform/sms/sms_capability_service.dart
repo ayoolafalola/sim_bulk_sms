@@ -47,7 +47,7 @@ class SmsSendRequest {
 /// Event from the native layer. Always carries both ids (spec §8.1).
 class SmsEvent {
   const SmsEvent({required this.type, required this.campaignRecipientId, required this.attemptId, this.errorCode, this.errorMessage});
-  final String type; // sendStarted | sendSucceeded | sendFailed | deliveryReported | composerResult
+  final String type; // sendStarted | sendSucceeded | sendFailed | deliveryReported | deliveryFailed | composerResult
   final int campaignRecipientId;
   final int attemptId;
   final String? errorCode;

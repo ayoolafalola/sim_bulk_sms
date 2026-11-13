@@ -5,12 +5,14 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import app.sim_bulk_sms.phonebook.PhonebookBridge
 
 class MainActivity : FlutterActivity() {
     private var bridge: SmsBridge? = null
     private var contacts: ContactsBridge? = null
     private var background: BackgroundBridge? = null
     private var messages: MessagesBridge? = null
+    private var phonebook: PhonebookBridge? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -25,12 +27,15 @@ class MainActivity : FlutterActivity() {
         val mb = MessagesBridge(this); messages = mb
         MethodChannel(messenger, "app.sim_bulk_sms/messages").setMethodCallHandler(mb)
         EventChannel(messenger, "app.sim_bulk_sms/messages_events").setStreamHandler(MessagesEvents.handler)
+        val pb = PhonebookBridge(this); phonebook = pb
+        MethodChannel(messenger, "app.sim_bulk_sms/phonebook").setMethodCallHandler(pb)
         mb.onIntent(intent)
     }
 
     override fun onRequestPermissionsResult(code: Int, perms: Array<out String>, res: IntArray) {
         super.onRequestPermissionsResult(code, perms, res)
         bridge?.onPermissionsResult(code); contacts?.onPermissionsResult(code); background?.onPermissionsResult(code)
+        phonebook?.onPermissionsResult(code)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -44,5 +49,5 @@ class MainActivity : FlutterActivity() {
         messages?.onActivityResult(requestCode)
     }
 
-    override fun onDestroy() { bridge?.dispose(); messages?.dispose(); contacts?.dispose(); super.onDestroy() }
+    override fun onDestroy() { bridge?.dispose(); messages?.dispose(); contacts?.dispose(); phonebook?.dispose(); super.onDestroy() }
 }

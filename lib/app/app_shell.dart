@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../features/contacts/contact_sync_runner.dart';
+import '../features/phonebook/phonebook_controller.dart';
 import '../features/pro/pro_controller.dart';
 import 'providers.dart';
 import 'sending_providers.dart';
@@ -61,13 +62,23 @@ class _AppShellState extends ConsumerState<AppShell> with WidgetsBindingObserver
     }
   }
 
-  Future<void> _syncContacts() => ref.read(contactSyncRunnerProvider).run();
+  Future<void> _syncContacts() async {
+    await ref.read(contactSyncRunnerProvider).run();
+    // Keep the Contacts-app actions and share-sheet people up to date.
+    await ref.read(phonebookControllerProvider).refresh();
+    await ref.read(phonebookControllerProvider).publishShareTargets();
+  }
 
   Future<void> _openLaunch() async {
     final l = await ref.read(messagesServiceProvider)?.takeLaunch();
     if (l == null || !mounted) return;
     if (l.threadId != null) {
       context.push('/messages/thread/${l.threadId}');
+    } else if (l.chat && l.address != null) {
+      context.push(Uri(path: '/messages/chat-to', queryParameters: {'to': l.address!, if (l.name != null) 'name': l.name!})
+          .toString());
+    } else if ((l.address == null || l.address!.isEmpty) && (l.body?.isNotEmpty ?? false)) {
+      context.push(Uri(path: '/messages/share', queryParameters: {'text': l.body!}).toString());
     } else if (l.address != null && l.address!.isNotEmpty) {
       context.push(Uri(path: '/messages/compose', queryParameters: {'to': l.address!, if (l.body != null) 'body': l.body!})
           .toString());

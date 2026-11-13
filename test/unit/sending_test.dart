@@ -10,12 +10,24 @@ import 'package:sim_bulk_sms/features/sms_sending/send_orchestrator.dart';
 import 'package:sim_bulk_sms/platform/sms/sms_capability_service.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
-const androidOk = SmsCapabilities(platform: SmsPlatform.android, canSendDirectly: true,
-    usesComposerHandoff: false, canSelectSim: false, blocker: DirectSendBlocker.none);
-const androidBlocked = SmsCapabilities(platform: SmsPlatform.android, canSendDirectly: false,
-    usesComposerHandoff: false, canSelectSim: false, blocker: DirectSendBlocker.playPolicyUnresolved);
-const iosOk = SmsCapabilities(platform: SmsPlatform.ios, canSendDirectly: false,
-    usesComposerHandoff: true, canSelectSim: false, blocker: DirectSendBlocker.none);
+const androidOk = SmsCapabilities(
+    platform: SmsPlatform.android,
+    canSendDirectly: true,
+    usesComposerHandoff: false,
+    canSelectSim: false,
+    blocker: DirectSendBlocker.none);
+const androidBlocked = SmsCapabilities(
+    platform: SmsPlatform.android,
+    canSendDirectly: false,
+    usesComposerHandoff: false,
+    canSelectSim: false,
+    blocker: DirectSendBlocker.playPolicyUnresolved);
+const iosOk = SmsCapabilities(
+    platform: SmsPlatform.ios,
+    canSendDirectly: false,
+    usesComposerHandoff: true,
+    canSelectSim: false,
+    blocker: DirectSendBlocker.none);
 
 class FakeSms implements SmsCapabilityService {
   FakeSms(this.caps);
@@ -24,17 +36,22 @@ class FakeSms implements SmsCapabilityService {
   final sentTo = <String>[];
   Future<SmsOperationResult> Function(SmsSendRequest)? onSend;
 
-  @override Future<SmsCapabilities> getCapabilities() async => caps;
-  @override Future<bool> requestRequiredPermissions() async => true;
-  @override Future<List<SimSubscription>> getAvailableSubscriptions() async => const [];
-  @override Stream<SmsEvent> get events => controller.stream;
+  @override
+  Future<SmsCapabilities> getCapabilities() async => caps;
+  @override
+  Future<bool> requestRequiredPermissions() async => true;
+  @override
+  Future<List<SimSubscription>> getAvailableSubscriptions() async => const [];
+  @override
+  Stream<SmsEvent> get events => controller.stream;
   @override
   Future<SmsOperationResult> sendMessage(SmsSendRequest r) {
     sentTo.add(r.phoneE164);
     return onSend != null ? onSend!(r) : Future.value(const SmsOperationResult(RecipientStatus.submitted));
   }
-  void emit(String type, SmsSendRequest r, {String? code}) => controller.add(
-      SmsEvent(type: type, campaignRecipientId: r.campaignRecipientId, attemptId: r.attemptId, errorCode: code));
+
+  void emit(String type, SmsSendRequest r, {String? code}) => controller
+      .add(SmsEvent(type: type, campaignRecipientId: r.campaignRecipientId, attemptId: r.attemptId, errorCode: code));
 }
 
 void main() {
@@ -47,14 +64,16 @@ void main() {
 
   Future<int> makeCampaign(int n, {String platform = 'android'}) async {
     final id = await campaigns.createDraft(name: 'C', template: 'x', platform: platform);
-    await campaigns.saveSnapshot(id, [for (var i = 1; i <= n; i++)
-      SnapshotRecipient(name: 'R$i', phoneE164: '+100$i', renderedMessage: 'x')]);
+    await campaigns.saveSnapshot(
+        id, [for (var i = 1; i <= n; i++) SnapshotRecipient(name: 'R$i', phoneE164: '+100$i', renderedMessage: 'x')]);
     return id;
   }
+
   Future<void> settle() async {
     await Future<void>.delayed(const Duration(milliseconds: 20));
     await orch.flushEvents();
   }
+
   Future<Map<RecipientStatus, int>> counts(int id) => campaigns.statusCounts(id);
 
   void build(SmsCapabilities caps) {
@@ -68,18 +87,28 @@ void main() {
     attempts = AttemptRepository(db);
     build(androidOk);
   });
-  tearDown(() async { await orch.dispose(); await db.close(); });
+  tearDown(() async {
+    await orch.dispose();
+    await db.close();
+  });
 
   group('computeCampaignOutcome', () {
-    test('in flight -> null', () => expect(computeCampaignOutcome({RecipientStatus.pending: 1, RecipientStatus.sent: 2}), isNull));
-    test('all sent/delivered -> completed', () =>
-        expect(computeCampaignOutcome({RecipientStatus.sent: 1, RecipientStatus.delivered: 1}), CampaignStatus.completed));
-    test('mixed -> partiallyCompleted', () =>
-        expect(computeCampaignOutcome({RecipientStatus.sent: 1, RecipientStatus.failed: 1}), CampaignStatus.partiallyCompleted));
-    test('all failed -> failed', () => expect(computeCampaignOutcome({RecipientStatus.failed: 2}), CampaignStatus.failed));
-    test('all unknown is NOT reported as failed', () =>
-        expect(computeCampaignOutcome({RecipientStatus.unknown: 2}), CampaignStatus.partiallyCompleted));
-    test('all cancelled -> cancelled', () => expect(computeCampaignOutcome({RecipientStatus.cancelled: 2}), CampaignStatus.cancelled));
+    test('in flight -> null',
+        () => expect(computeCampaignOutcome({RecipientStatus.pending: 1, RecipientStatus.sent: 2}), isNull));
+    test(
+        'all sent/delivered -> completed',
+        () => expect(
+            computeCampaignOutcome({RecipientStatus.sent: 1, RecipientStatus.delivered: 1}), CampaignStatus.completed));
+    test(
+        'mixed -> partiallyCompleted',
+        () => expect(computeCampaignOutcome({RecipientStatus.sent: 1, RecipientStatus.failed: 1}),
+            CampaignStatus.partiallyCompleted));
+    test('all failed -> failed',
+        () => expect(computeCampaignOutcome({RecipientStatus.failed: 2}), CampaignStatus.failed));
+    test('all unknown is NOT reported as failed',
+        () => expect(computeCampaignOutcome({RecipientStatus.unknown: 2}), CampaignStatus.partiallyCompleted));
+    test('all cancelled -> cancelled',
+        () => expect(computeCampaignOutcome({RecipientStatus.cancelled: 2}), CampaignStatus.cancelled));
   });
 
   group('Android run', () {
@@ -96,6 +125,41 @@ void main() {
       await settle();
       expect(await counts(id), {RecipientStatus.delivered: 1, RecipientStatus.sent: 2});
       expect((await campaigns.get(id))!.status, CampaignStatus.completed);
+    });
+
+    test('a carrier report that a sent text was not delivered marks it failed', () async {
+      final id = await makeCampaign(2);
+      var i = 0;
+      sms.onSend = (r) async {
+        i++;
+        sms.emit('sendSucceeded', r);
+        sms.emit(i == 1 ? 'deliveryReported' : 'deliveryFailed', r, code: i == 1 ? null : 'not_delivered');
+        return const SmsOperationResult(RecipientStatus.submitted);
+      };
+      await orch.runAndroid(id);
+      await settle();
+      expect(await counts(id), {RecipientStatus.delivered: 1, RecipientStatus.failed: 1});
+      final failed = await db.query('campaign_recipients',
+          columns: ['last_error_code'], where: "campaign_id = ? AND status = 'failed'", whereArgs: [id]);
+      expect(failed.single['last_error_code'], 'not_delivered');
+      expect((await campaigns.get(id))!.status, CampaignStatus.partiallyCompleted);
+    });
+
+    test('a delivery report that comes after the app restarted is still recorded', () async {
+      final id = await makeCampaign(1);
+      final reqs = <SmsSendRequest>[];
+      sms.onSend = (r) async {
+        reqs.add(r);
+        return const SmsOperationResult(RecipientStatus.submitted);
+      };
+      await orch.runAndroid(id);
+      await settle();
+      await attempts.recoverInterrupted(); // the app stopped before Android answered
+      expect(await counts(id), {RecipientStatus.unknown: 1});
+
+      sms.emit('deliveryReported', reqs.single); // kept by the receiver, passed on at the next start
+      await settle();
+      expect(await counts(id), {RecipientStatus.delivered: 1});
     });
 
     test('without callbacks recipients stay submitted and the campaign is not completed', () async {
@@ -149,7 +213,10 @@ void main() {
 
     test('pause stops after the current message', () async {
       final id = await makeCampaign(3);
-      sms.onSend = (r) async { orch.pause(); return const SmsOperationResult(RecipientStatus.submitted); };
+      sms.onSend = (r) async {
+        orch.pause();
+        return const SmsOperationResult(RecipientStatus.submitted);
+      };
       await orch.runAndroid(id);
       expect(sms.sentTo.length, 1);
       expect((await campaigns.get(id))!.status, CampaignStatus.paused);
@@ -194,9 +261,9 @@ void main() {
       final a = await attempts.beginAttempt(r.id, 'android');
       await attempts.applyResult(a, RecipientStatus.submitted);
       expect(await attempts.applyResult(a, RecipientStatus.sent), id);
-      expect(await attempts.applyResult(a, RecipientStatus.sent), isNull);      // duplicate
+      expect(await attempts.applyResult(a, RecipientStatus.sent), isNull); // duplicate
       expect(await attempts.applyResult(a, RecipientStatus.delivered), id);
-      expect(await attempts.applyResult(a, RecipientStatus.failed), isNull);    // late, contradicts delivered
+      expect(await attempts.applyResult(a, RecipientStatus.failed), isNull); // late, contradicts delivered
       expect((await campaigns.recipients(id)).single.status, RecipientStatus.delivered);
     });
 
@@ -244,7 +311,10 @@ void main() {
   });
 
   group('iOS composer', () {
-    setUp(() async { await orch.dispose(); build(iosOk); });
+    setUp(() async {
+      await orch.dispose();
+      build(iosOk);
+    });
 
     test('cancel is never recorded as sent; nothing advances automatically', () async {
       final id = await makeCampaign(2, platform: 'ios');
@@ -277,8 +347,12 @@ void main() {
 
     test('unavailable composer blocks', () async {
       final id = await makeCampaign(1, platform: 'ios');
-      sms.caps = const SmsCapabilities(platform: SmsPlatform.ios, canSendDirectly: false,
-          usesComposerHandoff: false, canSelectSim: false, blocker: DirectSendBlocker.none);
+      sms.caps = const SmsCapabilities(
+          platform: SmsPlatform.ios,
+          canSendDirectly: false,
+          usesComposerHandoff: false,
+          canSelectSim: false,
+          blocker: DirectSendBlocker.none);
       await expectLater(orch.sendNextViaComposer(id), throwsA(isA<SendBlockedException>()));
       expect(sms.sentTo, isEmpty);
     });

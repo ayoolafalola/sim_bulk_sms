@@ -77,14 +77,16 @@ void main() {
     appRouter.go('/settings');
     await settle(until: find.text('Free'));
     await t.tap(find.text('Comeriver Pro'));
-    await settle(until: find.text('Yearly · ₦25,000'));
+    await settle(until: find.text('Comeriver Pro yearly · ₦25,000 / year · save 10%'));
     expect(find.textContaining('free app'), findsOneWidget);
     expect(find.text('Up to 5'), findsOneWidget);
 
-    await t.tap(find.text('Yearly · ₦25,000'));
+    await t.ensureVisible(find.text('Comeriver Pro yearly · ₦25,000 / year · save 10%'));
+    await settle();
+    await t.tap(find.text('Comeriver Pro yearly · ₦25,000 / year · save 10%'));
     await settle(until: find.text('Welcome to Comeriver Pro!'));
     expect(billing.bought, ['yearly']);
-    expect(find.textContaining('Pro is on'), findsOneWidget);
+    expect(find.textContaining('Pro is on', skipOffstage: false), findsOneWidget);
     expect((await t.runAsync(() => SettingsRepository(db).loadPro()))!.isPro(), true);
 
     // Pro: signature off by default; add one.

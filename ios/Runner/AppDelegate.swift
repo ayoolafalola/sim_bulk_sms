@@ -18,6 +18,7 @@ import UIKit
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "MessagingBridge") {
       MessagingBridge.register(with: registrar.messenger(), bridge: messagingBridge)
       ContactsBridge.register(with: registrar.messenger(), bridge: contactsBridge)
+      NativeIntegrationBridge.register(with: registrar.messenger())
     }
   }
 }

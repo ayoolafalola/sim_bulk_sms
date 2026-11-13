@@ -7,16 +7,24 @@ import 'schema_v6.dart';
 import 'schema_v7.dart';
 import 'schema_v8.dart';
 import 'schema_v9.dart';
+import 'schema_v10.dart';
 
-const currentSchemaVersion = 9; // v4 was never used
+const currentSchemaVersion = 10; // v4 was never used
 
 /// Opens the app database with foreign keys enforced. Pass a [DatabaseFactory]
 /// so tests can use an in-memory sqflite_common_ffi database.
-Future<Database> openAppDatabase(DatabaseFactory factory, String path) {
+///
+/// On Android, sqflite shares one native connection per file across the whole
+/// process (the app screen, the send service and push handlers). Code that
+/// opens the database only for a moment and then closes it must pass
+/// [singleInstance] false: closing the shared connection would close it under
+/// the app screen ("Could not load your campaigns") and the send service.
+Future<Database> openAppDatabase(DatabaseFactory factory, String path, {bool singleInstance = true}) {
   return factory.openDatabase(
     path,
     options: OpenDatabaseOptions(
       version: currentSchemaVersion,
+      singleInstance: singleInstance,
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
         // The app screen and the background send service each hold a connection:
@@ -25,7 +33,7 @@ Future<Database> openAppDatabase(DatabaseFactory factory, String path) {
       },
       onCreate: (db, v) async {
         final batch = db.batch();
-        for (final s in [...schemaV1, ...schemaV2, ...schemaV3, ...schemaV5, ...schemaV6, ...schemaV7, ...schemaV8, ...schemaV9]) { batch.execute(s); }
+        for (final s in [...schemaV1, ...schemaV2, ...schemaV3, ...schemaV5, ...schemaV6, ...schemaV7, ...schemaV8, ...schemaV9, ...schemaV10]) { batch.execute(s); }
         await batch.commit(noResult: true);
       },
       // Each step runs in sqflite's upgrade transaction: all or nothing.
@@ -50,6 +58,9 @@ Future<Database> openAppDatabase(DatabaseFactory factory, String path) {
         }
         if (from < 9) {
           for (final s in schemaV9) { await db.execute(s); }
+        }
+        if (from < 10) {
+          for (final s in schemaV10) { await db.execute(s); }
         }
       },
     ),

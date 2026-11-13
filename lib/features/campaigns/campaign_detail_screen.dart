@@ -314,7 +314,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
               'The phone can\'t tell the app whether you tapped Send.'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not sent')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sent')),
+            FilledButton.icon(onPressed: () => Navigator.pop(ctx, true), icon: const Icon(Icons.done_all), label: const Text('Sent')),
           ],
         ),
       );
@@ -354,7 +354,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           content: Text('Message ${m.position} of ${m.total}. The phone can\'t tell the app whether you tapped Send.'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Not sent')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sent')),
+            FilledButton.icon(onPressed: () => Navigator.pop(ctx, true), icon: const Icon(Icons.done_all), label: const Text('Sent')),
           ],
         ),
       );
@@ -629,7 +629,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           }
         }
         if (c.status != CampaignStatus.ready) {
-          buttons.add(OutlinedButton(onPressed: _cancel, child: const Text('Cancel campaign')));
+          buttons.add(OutlinedButton.icon(onPressed: _cancel, icon: const Icon(Icons.cancel_outlined), label: const Text('Cancel campaign')));
         }
       case CampaignStatus.draft:
         buttons.add(FilledButton.icon(
@@ -648,7 +648,7 @@ class _CampaignDetailScreenState extends ConsumerState<CampaignDetailScreen> {
           icon: const Icon(Icons.pause),
           label: const Text('Pause'),
         ));
-        buttons.add(OutlinedButton(onPressed: _cancel, child: const Text('Cancel campaign')));
+        buttons.add(OutlinedButton.icon(onPressed: _cancel, icon: const Icon(Icons.cancel_outlined), label: const Text('Cancel campaign')));
       case CampaignStatus.completed || CampaignStatus.partiallyCompleted || CampaignStatus.failed || CampaignStatus.cancelled:
         buttons.add(FilledButton.tonalIcon(
           onPressed: _busy ? null : () => _sendAgain(c),
@@ -791,7 +791,7 @@ class _ScheduleSection extends ConsumerWidget {
                     content: const Text('No more runs will be sent. Past runs and their reports are kept.'),
                     actions: [
                       TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Remove')),
+                      FilledButton.icon(onPressed: () => Navigator.pop(ctx, true), icon: const Icon(Icons.remove_circle_outline), label: const Text('Remove')),
                     ],
                   ),
                 );

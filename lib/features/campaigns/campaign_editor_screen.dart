@@ -25,15 +25,19 @@ import 'message_counter.dart';
 /// turned back into a draft: its edits are kept in the form until "Save and
 /// review", and leaving with unsaved edits asks first.
 class CampaignEditorScreen extends ConsumerStatefulWidget {
-  const CampaignEditorScreen({super.key, this.campaignId});
+  const CampaignEditorScreen({super.key, this.campaignId, this.initialTemplate});
   final int? campaignId;
+
+  /// A new campaign's message, e.g. text shared from another app.
+  final String? initialTemplate;
 
   @override
   ConsumerState<CampaignEditorScreen> createState() => _CampaignEditorScreenState();
 }
 
 class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
-  static const variables = ['first_name', 'name', 'last_name', 'phone', 'email', 'company', 'birthday'];
+  // {invite_link}: your Contacts++ link (signed in). Others, e.g. {event_link}, are filled in for everyone.
+  static const variables = ['first_name', 'name', 'last_name', 'phone', 'email', 'company', 'birthday', 'invite_link'];
   static const untitled = 'Untitled draft';
 
   final _name = TextEditingController();
@@ -67,6 +71,7 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
     _repo = ref.read(campaignRepositoryProvider);
     _version = ref.read(dataVersionProvider.notifier);
     _platformName = _platform();
+    if (widget.campaignId == null && widget.initialTemplate != null) _template.text = widget.initialTemplate!;
     _load();
   }
 
@@ -226,7 +231,7 @@ class _CampaignEditorScreenState extends ConsumerState<CampaignEditorScreen> {
         content: const Text('Your edits to this campaign have not been saved. It will stay as it was.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Keep editing')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Discard')),
+          FilledButton.icon(onPressed: () => Navigator.pop(ctx, true), icon: const Icon(Icons.delete_outline), label: const Text('Discard')),
         ],
       ),
     );

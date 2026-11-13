@@ -105,7 +105,9 @@ class ColumnMapping {
       return col;
     }
 
-    bool isPhone(String v) => normalizer.normalize(firstNumber(v).number).isValid;
+    // "1990-05-17" or "17/05/1990" has enough digits to pass as a number: it's a date.
+    final dateShaped = RegExp(r'^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}$|^\d{1,2}[-/.]\d{1,2}[-/.]\d{4}$');
+    bool isPhone(String v) => !dateShaped.hasMatch(v.trim()) && normalizer.normalize(firstNumber(v).number).isValid;
     final phone = (hasHeader ? _find(headers, _phoneAliases) : null) ?? best(isPhone, const {});
     final email = (hasHeader ? _find(headers, _emailAliases) : null) ?? best((v) => v.contains('@'), {phone});
     if (phone == null && email == null) return null;

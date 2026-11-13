@@ -109,12 +109,21 @@ class MessagesBridge(private val activity: Activity) : MethodChannel.MethodCallH
         intent ?: return
         val thread = intent.getLongExtra(Notifications.EXTRA_THREAD, -1L)
         val data = intent.data
+        val shared = intent.getStringExtra(Intent.EXTRA_TEXT)
+            ?: intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
         launch = when {
             thread > 0 -> mapOf("threadId" to thread)
             (intent.action == Intent.ACTION_SENDTO || intent.action == Intent.ACTION_SEND || intent.action == Intent.ACTION_VIEW) &&
                 data != null && data.scheme in setOf("sms", "smsto", "mms", "mmsto") ->
                 mapOf("address" to QuickReplyService.recipient(data),
-                    "body" to (intent.getStringExtra("sms_body") ?: intent.getStringExtra(Intent.EXTRA_TEXT)))
+                    "body" to (intent.getStringExtra("sms_body") ?: shared),
+                    // "Chat …" from the phone's Contacts app.
+                    "chat" to intent.getBooleanExtra(app.sim_bulk_sms.phonebook.PhonebookActionActivity.EXTRA_CHAT, false),
+                    "name" to intent.getStringExtra(app.sim_bulk_sms.phonebook.PhonebookActionActivity.EXTRA_NAME))
+            // Shared from another app; to a person when picked by Direct Share.
+            intent.action == Intent.ACTION_SEND && shared != null ->
+                mapOf("address" to app.sim_bulk_sms.phonebook.DirectShare.numberFrom(intent.getStringExtra(Intent.EXTRA_SHORTCUT_ID)),
+                    "body" to (listOfNotNull(intent.getStringExtra(Intent.EXTRA_SUBJECT), shared).joinToString("\n")))
             else -> return
         }
         MessagesEvents.emit(mapOf("type" to "launch"))

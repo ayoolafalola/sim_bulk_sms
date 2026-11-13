@@ -1,4 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Messages++</string>
+    <!-- The account that adds Messages++ actions to the phone's Contacts app. -->
+    <string name="phonebook_account_label">Messages++</string>
+    <string name="shortcut_new_message_short">New message</string>
+    <string name="shortcut_new_message_long">Write a new message</string>
+    <string name="shortcut_new_campaign_short">Message a group</string>
+    <string name="shortcut_new_campaign_long">Send a message to a group</string>
+    <string name="shortcut_birthdays_short">Birthdays</string>
+    <string name="shortcut_birthdays_long">Birthday wishes</string>
 </resources>

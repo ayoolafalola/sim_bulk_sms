@@ -19,7 +19,10 @@ class Recipient {
 /// New message: choose people from your app contacts, your phone's contacts or
 /// a typed number, write once, and each gets their own text.
 class NewMessageScreen extends ConsumerStatefulWidget {
-  const NewMessageScreen({super.key});
+  const NewMessageScreen({super.key, this.initialBody});
+
+  /// Text to start with, e.g. shared from another app.
+  final String? initialBody;
 
   @override
   ConsumerState<NewMessageScreen> createState() => _NewMessageScreenState();
@@ -36,6 +39,7 @@ class _NewMessageScreenState extends ConsumerState<NewMessageScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialBody != null) _body.text = widget.initialBody!;
     _loadPhone(ask: false);
   }
 

@@ -35,7 +35,7 @@ class SetupBanner extends StatelessWidget {
                   style: TextStyle(color: scheme.onErrorContainer)),
             ),
           const SizedBox(height: 4),
-          FilledButton(onPressed: () => context.push('/settings/setup'), child: const Text('Fix now')),
+          FilledButton.icon(onPressed: () => context.push('/settings/setup'), icon: const Icon(Icons.build_outlined), label: const Text('Fix now')),
         ]),
       ),
     );

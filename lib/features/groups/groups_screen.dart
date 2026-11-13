@@ -15,7 +15,7 @@ Future<String?> askGroupName(BuildContext context, {String initial = '', require
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-        FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Save')),
+        FilledButton.icon(onPressed: () => Navigator.pop(ctx, ctrl.text), icon: const Icon(Icons.check), label: const Text('Save')),
       ],
     ),
   );

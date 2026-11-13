@@ -1,0 +1,4 @@
+// The Share Extension's own settings: Flutter's version numbers, without the
+// app's CocoaPods settings (which would make it build a second app product).
+#include "../Flutter/Generated.xcconfig"
+PRODUCT_NAME = ShareExtension

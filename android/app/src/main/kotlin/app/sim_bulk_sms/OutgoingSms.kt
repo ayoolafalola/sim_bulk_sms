@@ -60,7 +60,11 @@ class SmsStatusReceiver : BroadcastReceiver() {
         when (intent.action) {
             OutgoingSms.ACTION_SENT ->
                 if (resultCode == Activity.RESULT_OK) MessageStore.markSent(ctx, row) else MessageStore.markFailed(ctx, row, resultCode)
-            OutgoingSms.ACTION_DELIVERED -> if (resultCode == Activity.RESULT_OK) MessageStore.markDelivered(ctx, row)
+            OutgoingSms.ACTION_DELIVERED -> if (resultCode == Activity.RESULT_OK) when (DeliveryStatus.of(intent)) {
+                DeliveryOutcome.DELIVERED -> MessageStore.markDelivered(ctx, row)
+                DeliveryOutcome.FAILED -> MessageStore.markNotDelivered(ctx, row)
+                DeliveryOutcome.PENDING -> {} // the carrier is still trying; another report follows
+            }
         }
         MessagesEvents.changed()
     }

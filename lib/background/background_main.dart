@@ -11,7 +11,10 @@ import '../data/repositories/settings_repository.dart';
 import '../features/birthdays/birthday_runner.dart';
 import '../features/campaigns/campaign_composer.dart';
 import '../features/scheduling/schedule_runner.dart';
+import '../features/relay/relay_runner.dart';
 import '../features/sms_sending/send_orchestrator.dart';
+import '../platform/contacts_plus/contacts_chat_service.dart';
+import '../platform/contacts_plus/contacts_plus_auth.dart';
 import '../platform/email/email_senders.dart';
 import '../platform/email/google_gmail_auth.dart';
 import '../platform/sms/android_sms_service.dart';
@@ -38,14 +41,20 @@ Future<void> backgroundMain() async {
     final orchestrator = SendOrchestrator(
       sms: sms, attempts: attempts, campaigns: campaigns, settings: settings,
       emailSender: () async => emailSenderFor(await settings.loadEmail(), gmail: gmail),
+      // Scheduled runs chat with Contacts++ members too (when signed in).
+      chats: ContactsChatSender(ContactsChatService(ContactsPlusAuth())),
+      chatFirstEnabled: settings.chatFirst,
     )..start();
     final composer = CampaignComposer(
-        contacts: ContactRepository(db), groups: GroupRepository(db), campaigns: campaigns, proStatus: settings.loadPro);
+        contacts: ContactRepository(db), groups: GroupRepository(db), campaigns: campaigns, proStatus: settings.loadPro,
+        sharedValues: () => contactsPlusSharedValues(ContactsPlusAuth()));
     await BackgroundJob(
       host: host, sms: sms, orchestrator: orchestrator, campaigns: campaigns, schedules: schedules,
       runner: ScheduleRunner(schedules: schedules, campaigns: campaigns, composer: composer, proStatus: settings.loadPro),
       birthdays: BirthdayRunner(db: db, settings: settings, contacts: ContactRepository(db), groups: GroupRepository(db),
           campaigns: campaigns),
+      reportRelay: () => RelayRunner(db: db, transport: ContactsRelayTransport(ContactsPlusAuth()), campaigns: campaigns)
+          .reportResults(),
     ).run();
   } catch (e, st) {
     debugPrint('Background sending failed: $e\n$st');

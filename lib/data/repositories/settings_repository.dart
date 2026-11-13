@@ -77,6 +77,10 @@ class SettingsRepository {
   /// The signature campaign texts and emails get right now (null = none).
   Future<String?> signature() async => campaignSignature(await loadPro(), custom: await customSignature());
 
+  /// Settings › "Chat with Contacts++ members first" (on unless turned off).
+  Future<bool> chatFirst() async => await _get('chat_first') != 'off';
+  Future<void> setChatFirst(bool on) => _set('chat_first', on ? 'on' : 'off');
+
   Future<BirthdaySettings> loadBirthdays() async => BirthdaySettings.fromJson(await _get('birthday_wishes'));
   Future<void> saveBirthdays(BirthdaySettings s) => _set('birthday_wishes', s.toJson());
 }

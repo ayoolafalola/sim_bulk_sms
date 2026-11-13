@@ -8,8 +8,14 @@ import '../../domain/models/contact.dart';
 import '../../platform/sms/sms_capability_service.dart';
 import '../../app/sending_providers.dart';
 import '../../app/theme.dart';
+import '../../platform/contacts_plus/contacts_chat_service.dart';
 import '../../platform/messages/messages_service.dart';
 import '../common/ui.dart';
+import '../account/account_controller.dart';
+import '../chats/chat_feed.dart';
+import '../chats/chats_providers.dart';
+import '../chats/merged_inbox.dart';
+import '../chats/on_contacts_banner.dart';
 
 /// Which campaign sent each of these stored texts ("1,2,3" → labels).
 final _labelsProvider = FutureProvider.family<Map<int, ({int campaignId, String name})>, String>((ref, key) {
@@ -39,11 +45,13 @@ final _simsProvider = FutureProvider<List<SimSubscription>>((ref) async {
 /// One conversation: bubbles with status and campaign labels, quick replies,
 /// SIM choice and a reply box that stays above the keyboard. Opened for a
 /// thread, or for a number (another app's "Send SMS", a notification), with an
-/// optional draft.
+/// optional draft. With [chatId] (the merged "All" list) the person's
+/// Contacts++ chat joins the same timeline, each message marked SMS or Chat,
+/// and replies go as a chat or a text.
 class ConversationScreen extends ConsumerStatefulWidget {
-  const ConversationScreen({super.key, this.threadId, this.address, this.draft});
+  const ConversationScreen({super.key, this.threadId, this.address, this.draft, this.chatId});
   final int? threadId;
-  final String? address, draft;
+  final String? address, draft, chatId;
 
   @override
   ConsumerState<ConversationScreen> createState() => _ConversationScreenState();
@@ -57,6 +65,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   int? _subId; // chosen SIM (null = phone default)
   bool _simLoaded = false;
   final _hidden = <int>{}; // deleted with Undo still possible
+  ChatFeed? _feed; // the person's Contacts++ chat, in the merged view
+  MessageSource _sendAs = MessageSource.chat;
 
   static const _quick = ['Thank you!', 'See you there', 'I\'ll call you back'];
 
@@ -65,10 +75,21 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     super.initState();
     _threadId = widget.threadId;
     _resolve();
+    final chatId = widget.chatId;
+    if (chatId != null) {
+      _feed = ChatFeed(ref.read(contactsChatServiceProvider), chatId)..addListener(_feedChanged);
+      _feed!.start();
+      WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(chatsProvider.notifier).markOpened(chatId));
+    }
+  }
+
+  void _feedChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
+    _feed?.dispose();
     _reply.dispose();
     super.dispose();
   }
@@ -127,6 +148,12 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   Future<void> _send(String address, String text) async {
     final body = text.trim();
     if (body.isEmpty || _sending) return;
+    final feed = _feed;
+    if (feed != null && _sendAs == MessageSource.chat) {
+      if (identical(text, _reply.text)) _reply.clear();
+      if (!await feed.send(body) && mounted) _snack('Contacts++ didn’t take this chat. Tap Retry, or send it as a text.');
+      return;
+    }
     setState(() => _sending = true);
     final ok = await ref.read(messagesServiceProvider)?.send(address, body, subId: _subId) ?? false;
     if (!mounted) return;
@@ -184,7 +211,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         content: const Text('All its messages are deleted from this phone, also from other messaging apps.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+          FilledButton.icon(onPressed: () => Navigator.pop(ctx, true), icon: const Icon(Icons.delete_outline), label: const Text('Delete')),
         ],
       ),
     );
@@ -213,7 +240,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
             decoration: InputDecoration(labelText: 'Name', helperText: address)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Save')),
+          FilledButton.icon(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), icon: const Icon(Icons.check), label: const Text('Save')),
         ],
       ),
     );
@@ -255,6 +282,16 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final saved = address == null ? null : ref.watch(_contactForProvider(address)).valueOrNull;
     final title = convo?.name ?? saved?.contact?.name ?? address ?? 'New message';
     final labels = ref.watch(_labelsProvider([for (final m in msgs) if (!m.incoming) m.id].join(','))).valueOrNull ?? const {};
+    final feed = _feed;
+    final me = ref.watch(accountProvider).valueOrNull?.userId;
+    // One timeline: texts and (merged view) chat messages, oldest first.
+    final timeline = <({DateTime at, StoredMessage? sms, ChatMessage? chat, PendingChat? pending})>[
+      for (final m in msgs) (at: m.date, sms: m, chat: null, pending: null),
+      if (feed != null) ...[
+        for (final m in feed.messages) (at: m.at, sms: null, chat: m, pending: null),
+        for (final o in feed.pending) (at: o.at, sms: null, chat: null, pending: o),
+      ],
+    ]..sort((a, b) => a.at.compareTo(b.at));
     final sims = ref.watch(_simsProvider).valueOrNull ?? const <SimSubscription>[];
     final c = AppColors.of(context);
 
@@ -307,19 +344,46 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
         ],
       ),
       body: Column(children: [
+        if (address != null) OnContactsBanner(phone: address, name: title),
         Expanded(
           child: isDefault == false
               ? _NotDefault(address: address, draft: _reply.text)
-              : msgs.isEmpty
-                  ? const EmptyState(icon: Icons.chat_bubble_outline, title: 'No messages yet', text: 'Say hello.')
+              : timeline.isEmpty
+                  ? (feed != null && !feed.loaded
+                      ? const Center(child: CircularProgressIndicator())
+                      : const EmptyState(icon: Icons.chat_bubble_outline, title: 'No messages yet', text: 'Say hello.'))
                   : ListView.builder(
                       reverse: true,
                       padding: const EdgeInsets.fromLTRB(14, 12, 14, 8),
-                      itemCount: msgs.length,
+                      itemCount: timeline.length,
                       itemBuilder: (context, i) {
-                        final m = msgs[msgs.length - 1 - i];
-                        final prev = msgs.length - 2 - i >= 0 ? msgs[msgs.length - 2 - i] : null;
-                        final newDay = prev == null || !_sameDay(prev.date, m.date);
+                        final e = timeline[timeline.length - 1 - i];
+                        final prev = timeline.length - 2 - i >= 0 ? timeline[timeline.length - 2 - i] : null;
+                        final newDay = prev == null || !_sameDay(prev.at, e.at);
+                        final m = e.sms;
+                        if (m == null) {
+                          final cm = e.chat;
+                          final p = e.pending;
+                          return Column(children: [
+                            if (newDay) _DayLabel(e.at),
+                            cm != null
+                                ? _ChatBubble(
+                                    text: cm.deleted ? 'Message deleted' : (cm.body ?? _chatTypeLabel(cm.type)),
+                                    mine: cm.senderId == me,
+                                    at: cm.at,
+                                    state: cm.senderId == me ? cm.state : null,
+                                    muted: cm.deleted,
+                                    onLongPress: cm.body == null ? null : () => _copy(cm.body!),
+                                  )
+                                : _ChatBubble(
+                                    text: p!.body,
+                                    mine: true,
+                                    at: p.at,
+                                    state: p.failed ? 'failed' : 'sending',
+                                    onRetry: p.failed ? () => feed!.send(p.body, p) : null,
+                                  ),
+                          ]);
+                        }
                         final label = labels[m.id];
                         return Column(children: [
                           if (newDay) _DayLabel(m.date),
@@ -335,6 +399,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                             ),
                           _Bubble(
                             m,
+                            showSource: feed != null,
                             onRetry: m.status == StoredStatus.failed && address != null ? () => _send(address, m.body) : null,
                             onLongPress: () => _messageActions(m),
                           ),
@@ -346,7 +411,18 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           SizedBox(
             height: 44,
             child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
-              if (sims.length > 1)
+              if (feed != null)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ActionChip(
+                    avatar: Icon(_sendAs == MessageSource.chat ? Icons.forum_outlined : Icons.sms_outlined, size: 18),
+                    label: Text(_sendAs == MessageSource.chat ? 'Send as Chat' : 'Send as SMS'),
+                    tooltip: 'Switch between a Contacts++ chat and a text',
+                    onPressed: () => setState(() =>
+                        _sendAs = _sendAs == MessageSource.chat ? MessageSource.sms : MessageSource.chat),
+                  ),
+                ),
+              if (sims.length > 1 && (feed == null || _sendAs == MessageSource.sms))
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: ActionChip(
@@ -374,7 +450,7 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                     maxLines: 5,
                     textCapitalization: TextCapitalization.sentences,
                     decoration: InputDecoration(
-                      hintText: 'Text message',
+                      hintText: feed != null && _sendAs == MessageSource.chat ? 'Chat message' : 'Text message',
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: c.line)),
                       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: c.line)),
                     ),
@@ -396,6 +472,114 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   }
 
   static bool _sameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+
+  Future<void> _copy(String text) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (mounted) _snack('Copied');
+  }
+
+  static String _chatTypeLabel(String type) => switch (type) {
+        'image' => 'Photo · open in Contacts++',
+        'video' => 'Video · open in Contacts++',
+        'voice' => 'Voice message · open in Contacts++',
+        'document' => 'Document · open in Contacts++',
+        'call' => 'Call',
+        _ => 'Message',
+      };
+}
+
+/// "SMS" or "Chat" under a bubble in the merged timeline.
+class _SourceTag extends StatelessWidget {
+  const _SourceTag(this.source);
+  final MessageSource source;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AppColors.of(context);
+    final chat = source == MessageSource.chat;
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(chat ? Icons.forum_outlined : Icons.sms_outlined, size: 12, color: chat ? Theme.of(context).colorScheme.tertiary : c.muted),
+        const SizedBox(width: 3),
+        Text(chat ? 'Chat' : 'SMS',
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: chat ? Theme.of(context).colorScheme.tertiary : c.muted)),
+        const SizedBox(width: 4),
+      ]),
+    );
+  }
+}
+
+/// A Contacts++ chat message in the merged timeline: same shape as a text,
+/// in the chat colour, marked "Chat".
+class _ChatBubble extends StatelessWidget {
+  const _ChatBubble(
+      {required this.text, required this.mine, required this.at, this.state, this.onRetry, this.onLongPress, this.muted = false});
+  final String text;
+  final bool mine, muted;
+  final DateTime at;
+  final String? state;
+  final VoidCallback? onRetry, onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final c = AppColors.of(context);
+    final time = '${at.hour.toString().padLeft(2, '0')}:${at.minute.toString().padLeft(2, '0')}';
+    final status = switch (state) {
+      'sending' => 'Sending…',
+      'failed' => 'Not sent · tap to try again',
+      'read' => '$time · Read',
+      'delivered' => '$time · Delivered',
+      'sent' => '$time · Sent',
+      _ => time,
+    };
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: MediaQuery.sizeOf(context).width * 0.78),
+        child: GestureDetector(
+          onTap: onRetry,
+          onLongPress: onLongPress,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Column(crossAxisAlignment: mine ? CrossAxisAlignment.end : CrossAxisAlignment.start, children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: mine ? scheme.tertiary : scheme.tertiaryContainer,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(20), topRight: const Radius.circular(20),
+                    bottomLeft: Radius.circular(mine ? 20 : 6), bottomRight: Radius.circular(mine ? 6 : 20),
+                  ),
+                ),
+                child: Text(text,
+                    style: TextStyle(
+                        color: mine ? scheme.onTertiary : scheme.onTertiaryContainer,
+                        fontSize: 15,
+                        height: 1.4,
+                        fontStyle: muted ? FontStyle.italic : FontStyle.normal)),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 3, left: 4, right: 4),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const _SourceTag(MessageSource.chat),
+                  Text(status,
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: state == 'failed' ? scheme.error : c.muted,
+                          fontWeight: state == 'failed' ? FontWeight.w700 : FontWeight.w400)),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _DayLabel extends StatelessWidget {
@@ -420,9 +604,11 @@ class _DayLabel extends StatelessWidget {
 }
 
 class _Bubble extends StatelessWidget {
-  const _Bubble(this.m, {this.onRetry, this.onLongPress});
+  const _Bubble(this.m, {this.onRetry, this.onLongPress, this.showSource = false});
   final StoredMessage m;
   final VoidCallback? onRetry, onLongPress;
+  /// Merged timeline: mark it "SMS".
+  final bool showSource;
 
   @override
   Widget build(BuildContext context) {
@@ -462,9 +648,12 @@ class _Bubble extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 3, left: 4, right: 4),
-                child: Text(status,
-                    style: TextStyle(fontSize: 11, color: m.status == StoredStatus.failed ? scheme.error : c.muted,
-                        fontWeight: m.status == StoredStatus.failed ? FontWeight.w700 : FontWeight.w400)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  if (showSource) const _SourceTag(MessageSource.sms),
+                  Text(status,
+                      style: TextStyle(fontSize: 11, color: m.status == StoredStatus.failed ? scheme.error : c.muted,
+                          fontWeight: m.status == StoredStatus.failed ? FontWeight.w700 : FontWeight.w400)),
+                ]),
               ),
             ]),
           ),

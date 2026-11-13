@@ -1,7 +1,7 @@
 name: sim_bulk_sms
 description: SIM-based bulk SMS campaign manager (Android direct send, iOS composer handoff).
 publish_to: none
-version: 1.0.1+3
+version: 1.0.2+10
 environment:
   sdk: ">=3.4.0 <4.0.0"
   flutter: ">=3.22.0"
@@ -20,6 +20,14 @@ dependencies:
   in_app_purchase_android: ^0.5.5
   in_app_purchase_storekit: ^0.4.15
   share_plus: ^13.3.1
+  # Contacts++ account (connected-app sign-in, chats, backup).
+  app_links: ^7.2.2
+  crypto: ^3.0.7
+  flutter_secure_storage: ^11.2.0
+  http: ^1.6.0
+  # Messages++'s own Firebase app (MESSAGES_FIREBASE_* dart-defines): chat and web-send pushes.
+  firebase_core: ^5.1.0
+  firebase_messaging: ^17.0.1
 dev_dependencies:
   flutter_test: { sdk: flutter }
   flutter_lints: ^4.0.0

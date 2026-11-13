@@ -34,9 +34,15 @@ class StoredMessage {
 
 /// What the app was opened for: a notification's conversation, or another app's "text this number".
 class LaunchRequest {
-  const LaunchRequest({this.threadId, this.address, this.body});
+  const LaunchRequest({this.threadId, this.address, this.body, this.name, this.chat = false});
   final int? threadId;
   final String? address, body;
+
+  /// The person's name, when known (phone Contacts app, Direct Share).
+  final String? name;
+
+  /// "Chat with Messages++" tapped in the phone's Contacts app.
+  final bool chat;
 }
 
 /// The phone's messages (Android, while this is the default messaging app).
@@ -134,7 +140,7 @@ class NativeMessagesService implements MessagesService {
     final m = await _ch.invokeMethod<Map<dynamic, dynamic>>('takeLaunch');
     if (m == null) return null;
     return LaunchRequest(threadId: (m['threadId'] as num?)?.toInt(), address: m['address'] as String?,
-        body: m['body'] as String?);
+        body: m['body'] as String?, name: m['name'] as String?, chat: m['chat'] == true);
   }
 
   @override

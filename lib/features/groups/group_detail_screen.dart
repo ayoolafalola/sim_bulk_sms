@@ -45,7 +45,7 @@ class GroupDetailScreen extends ConsumerWidget {
                   content: const Text('The contacts stay in your contact list. Existing campaigns are not affected.'),
                   actions: [
                     TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                    FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete')),
+                    FilledButton.icon(onPressed: () => Navigator.pop(ctx, true), icon: const Icon(Icons.delete_outline), label: const Text('Delete')),
                   ],
                 ),
               );

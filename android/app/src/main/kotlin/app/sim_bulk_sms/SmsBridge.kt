@@ -36,9 +36,8 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
     private var pendingPermissionResult: MethodChannel.Result? = null
 
     private data class Op(val recipientId: Int, val parts: Int, var sentOk: Int = 0,
-                          var delivered: Int = 0, var failed: Boolean = false, var finished: Boolean = false,
-                          val row: Uri? = null) // its row in the phone's message store (default app only)
-    private val ops = ConcurrentHashMap<Int, Op>() // attemptId -> aggregate state
+                          var failed: Boolean = false, val row: Uri? = null) // row: in the phone's message store
+    private val ops = ConcurrentHashMap<Int, Op>() // attemptId -> sent-callback state, until sent or failed
 
     private val ACTION_SENT = "app.sim_bulk_sms.SMS_SENT"
     private val ACTION_DELIVERED = "app.sim_bulk_sms.SMS_DELIVERED"
@@ -51,20 +50,15 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
                 if (i.action == ACTION_SENT) {
                     if (resultCode == Activity.RESULT_OK) {
                         op.sentOk++
-                        if (op.sentOk == op.parts && !op.failed && !op.finished) {
+                        if (op.sentOk == op.parts && !op.failed) {
                             op.row?.let { MessageStore.markSent(c, it) }
                             emit("sendSucceeded", op.recipientId, attemptId)
+                            ops.remove(attemptId)
                         }
                     } else if (!op.failed) {
-                        op.failed = true; op.finished = true
+                        op.failed = true; ops.remove(attemptId)
                         op.row?.let { MessageStore.markFailed(c, it, resultCode) }
                         emit("sendFailed", op.recipientId, attemptId, mapError(resultCode), "SMS send failed")
-                    }
-                } else if (i.action == ACTION_DELIVERED && resultCode == Activity.RESULT_OK) {
-                    op.delivered++
-                    if (op.delivered == op.parts) {
-                        op.row?.let { MessageStore.markDelivered(c, it) }
-                        emit("deliveryReported", op.recipientId, attemptId); op.finished = true; ops.remove(attemptId)
                     }
                 }
             }
@@ -75,12 +69,31 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
         // The PendingIntents carry a smsattempt:// data URI (to keep them unique), and an
         // IntentFilter without a matching data scheme rejects intents that have data.
         val f = IntentFilter().apply {
-            addAction(ACTION_SENT); addAction(ACTION_DELIVERED); addDataScheme("smsattempt")
+            addAction(ACTION_SENT); addDataScheme("smsattempt")
         }
         ContextCompat.registerReceiver(ctx, receiver, f, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
-    fun dispose() { runCatching { ctx.unregisterReceiver(receiver) } }
+    fun dispose() {
+        CampaignDeliveryReports.unlisten(deliveries)
+        runCatching { ctx.unregisterReceiver(receiver) }
+    }
+
+    /**
+     * Delivery reports arrive through [CampaignDeliveryReceiver] and wait in
+     * [CampaignDeliveryReports] until an app screen or send service is listening;
+     * this passes the finished ones on. Each is passed on once, by one listener.
+     */
+    private val deliveries: () -> Unit = { main.post { flushDeliveries() } }
+
+    private fun flushDeliveries() {
+        if (sink == null) return
+        for (d in CampaignDeliveryReports.takeFinished(ctx)) {
+            if (d.delivered) emit("deliveryReported", d.recipientId, d.attemptId)
+            else emit("deliveryFailed", d.recipientId, d.attemptId, "not_delivered",
+                "Sent, but the carrier could not deliver it")
+        }
+    }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -156,6 +169,15 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
         return PendingIntent.getBroadcast(ctx, 0, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
+    /** Delivery reports go to a receiver Android can wake, with what it needs to record them. */
+    private fun deliveryPi(attemptId: Int, recipientId: Int, part: Int, parts: Int, row: Uri?): PendingIntent {
+        val i = Intent(ctx, CampaignDeliveryReceiver::class.java).setAction(ACTION_DELIVERED)
+            .setData(Uri.parse("smsattempt://$attemptId/$part/DELIVERED"))
+            .putExtra("attemptId", attemptId).putExtra("recipientId", recipientId)
+            .putExtra("part", part).putExtra("parts", parts).putExtra("row", row?.toString())
+        return PendingIntent.getBroadcast(ctx, 0, i, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
     private fun send(call: MethodCall, result: MethodChannel.Result) {
         val recipientId = call.argument<Int>("recipientId")!!
         val attemptId = call.argument<Int>("attemptId")!!
@@ -171,15 +193,18 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
             val mgr = manager(subId)
             val parts = mgr.divideMessage(body)
             // As the default messaging app, campaign texts go into the person's conversation too.
-            ops[attemptId] = Op(recipientId, parts.size, row = MessageStore.insertOutgoing(ctx, phone, body, subId))
+            val row = MessageStore.insertOutgoing(ctx, phone, body, subId)
+            ops[attemptId] = Op(recipientId, parts.size, row = row)
             val sent = ArrayList<PendingIntent?>(); val deliv = ArrayList<PendingIntent?>()
-            for (p in parts.indices) { sent.add(pi(ACTION_SENT, attemptId, p)); deliv.add(pi(ACTION_DELIVERED, attemptId, p)) }
+            for (p in parts.indices) {
+                sent.add(pi(ACTION_SENT, attemptId, p)); deliv.add(deliveryPi(attemptId, recipientId, p, parts.size, row))
+            }
             emit("sendStarted", recipientId, attemptId)
             if (parts.size == 1) mgr.sendTextMessage(phone, null, body, sent[0], deliv[0])
             else mgr.sendMultipartTextMessage(phone, null, parts, sent, deliv)
             // Accepted by the API only; the outcome arrives via callbacks. The stored row's id
             // lets the app label this text in the person's conversation.
-            result.success(ops[attemptId]?.row?.lastPathSegment?.toLongOrNull())
+            result.success(row?.lastPathSegment?.toLongOrNull())
         } catch (e: SecurityException) {
             ops.remove(attemptId)?.row?.let { MessageStore.markFailed(ctx, it, -1) }; result.error("permission_denied", "Security exception", null)
         } catch (e: IllegalArgumentException) {
@@ -224,6 +249,10 @@ class SmsBridge(context: Context, private val activity: Activity? = null) :
             "attemptId" to attemptId, "errorCode" to code, "errorMessage" to msg)) }
     }
 
-    override fun onListen(args: Any?, events: EventChannel.EventSink?) { sink = events }
-    override fun onCancel(args: Any?) { sink = null }
+    override fun onListen(args: Any?, events: EventChannel.EventSink?) {
+        sink = events
+        CampaignDeliveryReports.listen(deliveries)
+        flushDeliveries() // reports that came while nothing was listening
+    }
+    override fun onCancel(args: Any?) { sink = null; CampaignDeliveryReports.unlisten(deliveries) }
 }

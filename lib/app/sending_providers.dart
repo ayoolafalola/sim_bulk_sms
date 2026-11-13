@@ -1,7 +1,9 @@
 import 'dart:io' show Platform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/repositories/attempt_repository.dart';
+import '../features/account/account_controller.dart';
 import '../features/sms_sending/send_orchestrator.dart';
+import '../platform/contacts_plus/contacts_chat_service.dart';
 import '../features/setup/setup_status.dart';
 import '../platform/background/background_send_service.dart';
 import '../domain/models/email_settings.dart';
@@ -35,6 +37,14 @@ final emailSenderFactoryProvider = Provider<EmailSender? Function(EmailSettings)
   return (s) => emailSenderFor(s, gmail: gmail, post: post);
 });
 
+/// Contacts++ chats (only does anything while signed in to Contacts++).
+final contactsChatServiceProvider = Provider((ref) => ContactsChatService(ref.watch(contactsPlusAuthProvider)));
+
+final chatFirstProvider = FutureProvider<bool>((ref) {
+  ref.watch(dataVersionProvider);
+  return ref.watch(settingsRepositoryProvider).chatFirst();
+});
+
 final sendOrchestratorProvider = Provider((ref) {
   final settings = ref.watch(settingsRepositoryProvider);
   final senderFor = ref.watch(emailSenderFactoryProvider);
@@ -44,6 +54,8 @@ final sendOrchestratorProvider = Provider((ref) {
     campaigns: ref.watch(campaignRepositoryProvider),
     settings: settings,
     emailSender: () async => senderFor(await settings.loadEmail()),
+    chats: ContactsChatSender(ref.watch(contactsChatServiceProvider)),
+    chatFirstEnabled: settings.chatFirst,
   )..start();
   ref.onDispose(o.dispose);
   return o;

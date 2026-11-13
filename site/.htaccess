@@ -1,0 +1,25 @@
+# messages.comeriver.com: Messages++ site, web app (/app) and developer docs (/developers).
+Options -Indexes
+DirectoryIndex index.html
+RewriteEngine On
+
+# Real files are served as they are.
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+# The signed-in web app, including the Contacts++ sign-in return address.
+RewriteRule ^app(/.*)?$ /app/index.html [L]
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "DENY"
+  Header always set Strict-Transport-Security "max-age=31536000"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  <FilesMatch "\.(html|js|css)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "\.(png|svg|ico)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+</IfModule>

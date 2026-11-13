@@ -14,10 +14,12 @@ import '../domain/models/pro.dart';
 import '../domain/models/schedule.dart';
 import '../domain/models/send_settings.dart';
 import '../domain/models/statuses.dart';
+import '../features/account/account_controller.dart';
 import '../features/birthdays/birthday_runner.dart';
 import '../features/campaigns/campaign_composer.dart';
 import '../features/scheduling/schedule_runner.dart';
 import '../platform/contacts/phone_contacts_service.dart';
+import '../platform/contacts_plus/contacts_plus_auth.dart';
 
 /// Overridden in main() with the opened database (and in tests).
 final databaseProvider = Provider<Database>((ref) => throw UnimplementedError('databaseProvider not overridden'));
@@ -82,6 +84,7 @@ final composerProvider = Provider((ref) => CampaignComposer(
       groups: ref.watch(groupRepositoryProvider),
       campaigns: ref.watch(campaignRepositoryProvider),
       proStatus: ref.watch(settingsRepositoryProvider).loadPro,
+      sharedValues: () => contactsPlusSharedValues(ref.read(contactsPlusAuthProvider)),
     ));
 
 final allContactsProvider = FutureProvider<List<Contact>>((ref) {

@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Messages++ API guide</title>
+<meta name="description" content="Send texts from your own phone and number with the Messages++ API: quickstart, sending, statuses, signed webhooks and examples in curl, JavaScript, PHP and Python.">
+<meta name="theme-color" content="#1B6B5A">
+<link rel="icon" type="image/png" href="/assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app/app.css">
+<style>
+  main { max-width: 980px; display: grid; grid-template-columns: 220px 1fr; gap: 32px; }
+  aside nav { position: sticky; top: 76px; display: grid; gap: 4px; }
+  aside a { color: var(--fg); text-decoration: none; padding: 6px 10px; border-radius: 10px; font-weight: 600; font-size: .92rem; }
+  aside a:hover { background: var(--brand-soft); }
+  article h2 { margin-top: 40px; padding-top: 8px; border-top: 1px solid var(--line); }
+  article h3 { margin: 22px 0 6px; font-size: 1rem; }
+  pre { background: #0f1a17; color: #e3efe9; padding: 14px; border-radius: 14px; overflow-x: auto; font-size: .85rem; line-height: 1.5; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .9em; }
+  p code, li code, td code { background: var(--brand-soft); color: var(--brand-strong); padding: 1px 5px; border-radius: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .tabs-code { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .tabs-code button { border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 999px; padding: 4px 12px; font: inherit; font-size: .85rem; cursor: pointer; }
+  .tabs-code button[aria-selected="true"] { background: var(--brand-soft); color: var(--brand-strong); border-color: transparent; }
+  .code-panel[hidden] { display: none; }
+  @media (max-width: 760px) { main { grid-template-columns: 1fr; } aside { display: none; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><img src="/assets/messages-plus-plus-icon.png" alt="" width="32" height="32"><span>Messages++ API</span></a>
+  <nav class="tabs" aria-label="Main" style="display:flex">
+    <a href="/app/developers">⚿ Your keys</a>
+    <a href="/app/">✎ Web app</a>
+  </nav>
+</header>
+<main>
+<aside><nav aria-label="Guide">
+  <a href="#overview">Overview</a><a href="#quickstart">Quickstart</a><a href="#auth">Authentication</a>
+  <a href="#send">Sending messages</a><a href="#status">Statuses</a><a href="#webhooks">Webhooks</a>
+  <a href="#phones">Choosing a phone</a><a href="#errors">Errors</a><a href="#limits">Limits</a>
+  <a href="#contacts">With Contacts++</a><a href="#practice">Good practice</a>
+</nav></aside>
+<article>
+<h1>Messages++ API</h1>
+<p class="muted">Send texts from your own phone and number, from your website, shop or system.</p>
+
+<h2 id="overview">Overview</h2>
+<p>The API doesn't send texts from a shared gateway. Each message is queued for <strong>your</strong> phone running Messages++, which sends it from your SIM and number and reports back. People who are on Contacts++ and accept messages from you get a free Contacts++ chat instead of a text.</p>
+<ul>
+  <li><strong>Who can use it:</strong> members with Contacts++ Premium (or a Business plan). Keys are made in the <a href="/app/developers">web app</a>, never in the phone app.</li>
+  <li><strong>What you need:</strong> Messages++ on an Android phone, signed in with the same Contacts++ account, with automatic sending set up. An iPhone can also take API messages, but asks you to tap Send for each text.</li>
+  <li><strong>Base URL:</strong> <code>https://s1199.comeriver.com/api/v1/gateway</code></li>
+</ul>
+
+<h2 id="quickstart">Quickstart</h2>
+<ol>
+  <li>Sign in to <a href="/app/">Messages++ on the web</a> with Contacts++, open <strong>API</strong> and create a key. Copy the key and the webhook secret: they're shown once.</li>
+  <li>On your phone, sign in to Messages++ with the same account.</li>
+  <li>Send your first message:</li>
+</ol>
+<div class="tabs-code" role="tablist" data-group="quick"></div>
+<div class="code-panel" data-lang="curl" data-group="quick"><pre><code>curl https://s1199.comeriver.com/api/v1/gateway/messages \
+  -H "Authorization: Bearer $MESSAGES_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"to": "+2348030000000", "body": "Your order #42 is ready for pickup.", "reference": "order-42"}'</code></pre></div>
+<div class="code-panel" data-lang="JavaScript" data-group="quick" hidden><pre><code>const res = await fetch('https://s1199.comeriver.com/api/v1/gateway/messages', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${process.env.MESSAGES_API_KEY}`,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({ to: '+2348030000000', body: 'Your order #42 is ready for pickup.', reference: 'order-42' }),
+});
+const { data } = await res.json();
+console.log(data.messages[0].id, data.messages[0].status); // "queued"</code></pre></div>
+<div class="code-panel" data-lang="PHP" data-group="quick" hidden><pre><code>$ch = curl_init('https://s1199.comeriver.com/api/v1/gateway/messages');
+curl_setopt_array($ch, [
+    CURLOPT_POST => true,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_HTTPHEADER => [
+        'Authorization: Bearer ' . getenv('MESSAGES_API_KEY'),
+        'Content-Type: application/json',
+    ],
+    CURLOPT_POSTFIELDS => json_encode([
+        'to' => '+2348030000000',
+        'body' => 'Your order #42 is ready for pickup.',
+        'reference' => 'order-42',
+    ]),
+]);
+$data = json_decode(curl_exec($ch), true)['data'];
+echo $data['messages'][0]['id'];</code></pre></div>
+<div class="code-panel" data-lang="Python" data-group="quick" hidden><pre><code>import os, requests
+
+res = requests.post(
+    "https://s1199.comeriver.com/api/v1/gateway/messages",
+    headers={"Authorization": f"Bearer {os.environ['MESSAGES_API_KEY']}"},
+    json={"to": "+2348030000000", "body": "Your order #42 is ready for pickup.", "reference": "order-42"},
+    timeout=15,
+)
+res.raise_for_status()
+print(res.json()["data"]["messages"][0]["id"])</code></pre></div>
+<p>The answer is <code>202 Accepted</code>: the message is queued and your phone is woken to send it, usually within seconds.</p>
+
+<h2 id="auth">Authentication</h2>
+<p>Send your key as a Bearer token: <code>Authorization: Bearer mpk_live_…</code>. Keep it on your server; never put it in a website, an app or a public repository. If a key leaks, revoke it in the web app and make a new one.</p>
+<p>A key can be limited to your server's IP addresses (single addresses or ranges such as <code>203.0.113.0/24</code>). Requests from anywhere else get <code>403 ip_not_allowed</code>.</p>
+
+<h2 id="send">Sending messages</h2>
+<h3>POST /gateway/messages</h3>
+<table>
+  <tr><th>Field</th><th>Description</th></tr>
+  <tr><td><code>to</code></td><td>The number, ideally in international format (<code>+2348030000000</code>). Local numbers need <code>country</code>.</td></tr>
+  <tr><td><code>body</code></td><td>The text, up to 1,600 characters. Long texts go as several SMS parts.</td></tr>
+  <tr><td><code>reference</code></td><td>Optional, your own id (up to 100 characters). Sending again with the same reference within 24 hours returns the first message instead of sending a second one, so retries are safe.</td></tr>
+  <tr><td><code>messages</code></td><td>Instead of <code>to</code>/<code>body</code>: a list of up to 100 <code>{to, body, reference}</code>.</td></tr>
+  <tr><td><code>country</code></td><td>Optional two-letter country for local numbers, e.g. <code>NG</code>.</td></tr>
+  <tr><td><code>phone_id</code></td><td>Optional: which of your phones sends it (see <a href="#phones">Choosing a phone</a>).</td></tr>
+  <tr><td><code>send_at</code></td><td>Optional ISO 8601 time within the next 7 days, to send later.</td></tr>
+</table>
+<h3>Answer</h3>
+<pre><code>{
+  "success": true,
+  "data": {
+    "batch_id": "9f1c…",
+    "messages": [
+      { "id": "01933a…", "to": "+2348030000000", "reference": "order-42", "status": "queued",
+        "channel": null, "error_code": null, "created_at": "2026-11-11 10:00:00", "result_at": null }
+    ],
+    "rejected": [ { "index": 3, "reason": "invalid_number" } ]
+  }
+}</code></pre>
+<h3>GET /gateway/messages/{id}</h3>
+<p>The message's current status. Prefer <a href="#webhooks">webhooks</a> to polling; if you poll, every 30 seconds or slower.</p>
+
+<h2 id="status">Statuses</h2>
+<table>
+  <tr><th>Status</th><th>Meaning</th></tr>
+  <tr><td><code>queued</code></td><td>Waiting for your phone.</td></tr>
+  <tr><td><code>claimed</code></td><td>Your phone has it and is sending it.</td></tr>
+  <tr><td><code>sent</code></td><td>Your phone sent it. <code>channel</code> says how: <code>sms</code> or <code>chat</code> (Contacts++).</td></tr>
+  <tr><td><code>delivered</code></td><td>The carrier confirmed delivery (not every carrier reports this).</td></tr>
+  <tr><td><code>failed</code></td><td>It couldn't be sent; see <code>error_code</code>.</td></tr>
+  <tr><td><code>opted_out</code></td><td>This person opted out of your messages, so it wasn't sent.</td></tr>
+  <tr><td><code>expired</code></td><td>No phone picked it up within 24 hours (phone off, signed out, or no connection).</td></tr>
+  <tr><td><code>cancelled</code></td><td>Cancelled in the web app before it was sent.</td></tr>
+</table>
+
+<h2 id="webhooks">Webhooks</h2>
+<p>Give your key a public <code>https</code> webhook URL and Messages++ POSTs every status change to it:</p>
+<pre><code>POST /your-webhook
+X-Messages-Event: message.sent
+X-Messages-Signature: t=1762855200,v1=5f2b…
+
+{ "event": "message.sent", "id": "evt_1234", "created_at": "2026-11-11T10:00:05+00:00",
+  "data": { "id": "01933a…", "batch_id": "9f1c…", "to": "+2348030000000", "reference": "order-42",
+            "status": "sent", "channel": "sms", "error_code": null } }</code></pre>
+<p>Answer with any <code>2xx</code> within 10 seconds. Anything else is retried after 1, 2, 4, 8… minutes, up to 8 times. Events can arrive more than once or out of order: use <code>data.status</code> and ignore an <code>id</code> you've already handled.</p>
+<h3>Check the signature</h3>
+<p>The signature is an HMAC-SHA256, with your webhook secret, of <code>&lt;t&gt;.&lt;raw body&gt;</code>. Compare it in constant time and refuse timestamps older than 5 minutes.</p>
+<div class="tabs-code" role="tablist" data-group="verify"></div>
+<div class="code-panel" data-lang="Node.js" data-group="verify"><pre><code>import crypto from 'node:crypto';
+import express from 'express';
+
+const app = express();
+app.post('/messages-webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const header = req.get('X-Messages-Signature') || '';
+  const { t, v1 } = Object.fromEntries(header.split(',').map(p => p.split('=')));
+  const expected = crypto.createHmac('sha256', process.env.MESSAGES_WEBHOOK_SECRET)
+    .update(`${t}.${req.body}`).digest('hex');
+  const fresh = Math.abs(Date.now() / 1000 - Number(t)) < 300;
+  if (!fresh || !v1 || !crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected))) {
+    return res.sendStatus(400);
+  }
+  const event = JSON.parse(req.body);
+  // e.g. mark order event.data.reference as texted
+  res.sendStatus(204);
+});</code></pre></div>
+<div class="code-panel" data-lang="PHP" data-group="verify" hidden><pre><code>$body = file_get_contents('php://input');
+parse_str(str_replace(',', '&amp;', $_SERVER['HTTP_X_MESSAGES_SIGNATURE'] ?? ''), $sig);
+$expected = hash_hmac('sha256', ($sig['t'] ?? '') . '.' . $body, getenv('MESSAGES_WEBHOOK_SECRET'));
+if (abs(time() - (int) ($sig['t'] ?? 0)) > 300 || ! hash_equals($expected, $sig['v1'] ?? '')) {
+    http_response_code(400);
+    exit;
+}
+$event = json_decode($body, true);
+// e.g. update order $event['data']['reference']
+http_response_code(204);</code></pre></div>
+<div class="code-panel" data-lang="Python" data-group="verify" hidden><pre><code>import hashlib, hmac, os, time
+from flask import Flask, request, abort
+
+app = Flask(__name__)
+
+@app.post("/messages-webhook")
+def messages_webhook():
+    parts = dict(p.split("=", 1) for p in request.headers.get("X-Messages-Signature", "").split(",") if "=" in p)
+    expected = hmac.new(os.environ["MESSAGES_WEBHOOK_SECRET"].encode(),
+                        f"{parts.get('t', '')}.".encode() + request.get_data(), hashlib.sha256).hexdigest()
+    if abs(time.time() - int(parts.get("t", 0))) > 300 or not hmac.compare_digest(expected, parts.get("v1", "")):
+        abort(400)
+    event = request.get_json()
+    # e.g. update order event["data"]["reference"]
+    return "", 204</code></pre></div>
+<p>Rotate the secret any time in the web app (<strong>↻ Secret</strong>); the old one stops working at once.</p>
+
+<h2 id="phones">Choosing a phone</h2>
+<p><code>GET /gateway/phones</code> lists your phones signed in to Messages++:</p>
+<pre><code>{ "data": { "phones": [ { "id": "4b0d…", "name": "Messages++ on Android", "platform": "android",
+  "sends_automatically": true, "last_seen_at": "2026-11-11T09:58:00+00:00" } ] } }</code></pre>
+<p>Without <code>phone_id</code> (on the request or the key), any of your phones may send it. Set one so texts always leave from the same number.</p>
+
+<h2 id="errors">Errors</h2>
+<p>Errors have <code>"success": false</code> and an <code>errors</code> list with a <code>code</code> and a readable <code>message</code>. Field problems come back as <code>422</code> with <code>errors.&lt;field&gt;</code>.</p>
+<table>
+  <tr><th>HTTP</th><th>code</th><th>What to do</th></tr>
+  <tr><td>401</td><td><code>invalid_api_key</code></td><td>Check the key; it may have been revoked.</td></tr>
+  <tr><td>402</td><td><code>premium_required</code></td><td>Contacts++ Premium has ended. Renew it.</td></tr>
+  <tr><td>403</td><td><code>ip_not_allowed</code></td><td>Call from an allowed IP address or update the key.</td></tr>
+  <tr><td>422</td><td>(fields)</td><td>Fix the request. With no phone signed in, <code>phone_id</code> says so.</td></tr>
+  <tr><td>429</td><td><code>rate_limited</code></td><td>Wait for <code>Retry-After</code> seconds.</td></tr>
+  <tr><td>429</td><td><code>daily_limit_reached</code></td><td>The key's daily limit is used up; raise it in the web app or wait until tomorrow (UTC).</td></tr>
+</table>
+
+<h2 id="limits">Limits</h2>
+<ul>
+  <li>60 requests a minute per key; up to 100 messages per request.</li>
+  <li>A daily limit per key (500 to start, up to 5,000), set in the web app.</li>
+  <li>Your phone also keeps its own send limits and delay between texts (Messages++ › Settings › Sending safely), so carriers don't block your SIM.</li>
+  <li>Messages wait up to 24 hours for a phone; then they expire.</li>
+</ul>
+
+<h2 id="contacts">With Contacts++</h2>
+<p>Contacts++ uses the same service: when you send invitations or outreach from Contacts++ and choose <em>Send from my phone</em>, they go through Messages++ on your phone, and you follow them under <a href="/app/sends">Sends</a>. People already on Contacts++ get a chat; everyone else gets a text from your number with your invitation link.</p>
+<p>Signing in elsewhere with your Contacts++ account never shares your password: each app gets its own, limited permission, which you can remove in Contacts++ › Settings › Devices.</p>
+
+<h2 id="practice">Good practice</h2>
+<ul>
+  <li>Only text people who asked to hear from you, and say who you are.</li>
+  <li>Honour opt-outs. Replies such as STOP reach your phone; numbers you mark as opted out in Messages++ are never texted (<code>opted_out</code>).</li>
+  <li>Texts go from a personal SIM. Many carriers limit or forbid bulk or business traffic on personal lines: check your carrier's terms and local rules (for example, in Nigeria, the NCC's rules on unsolicited messages).</li>
+  <li>Don't send one-time passwords or anything secret through a personal phone.</li>
+</ul>
+<p class="muted small">Questions: <a href="mailto:messages@comeriver.com">messages@comeriver.com</a> · <a href="/terms/">Terms</a> · <a href="/privacy/">Privacy</a></p>
+</article>
+</main>
+<script src="/developers/tabs.js"></script>
+</body>
+</html>

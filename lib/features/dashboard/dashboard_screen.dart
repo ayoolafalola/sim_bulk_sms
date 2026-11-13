@@ -41,7 +41,17 @@ class DashboardScreen extends ConsumerWidget {
         bottom: false,
         child: stats.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => const Center(child: Text('Could not load your campaigns.')),
+          error: (e, _) => Center(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              const Text('Could not load your campaigns.'),
+              const SizedBox(height: 12),
+              FilledButton.tonalIcon(
+                onPressed: () => ref.invalidate(dashboardStatsProvider),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Try again'),
+              ),
+            ]),
+          ),
           data: (s) {
             final hidden = ref.watch(pendingCampaignDeletesProvider);
             final shown = s.recent.where((c) => !hidden.contains(c.id)).toList();

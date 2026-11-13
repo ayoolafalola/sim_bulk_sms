@@ -29,11 +29,34 @@
 				<string>com.googleusercontent.apps.194874520779-eg217gcidsieihdi9vs4ubfmdi82515t</string>
 			</array>
 		</dict>
+		<dict>
+			<!-- Contacts++ sign-in returns here (messagesplus://auth/callback); also links from Contacts++ and Events++. -->
+			<key>CFBundleURLName</key>
+			<string>com.comeriver.messages</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>messagesplus</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<!-- Links are routed by app_links (ContactsPlusLinkListener), not Flutter's default. -->
+	<key>FlutterDeepLinkingEnabled</key>
+	<false/>
+	<!-- Contacts++ and Events++: open chats, profiles and events in the other Comeriver apps. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>contacts</string>
+		<string>eventsplus</string>
+	</array>
+	<!-- Share-sheet people suggestions (conversations donated by the app). -->
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INSendMessageIntent</string>
+	</array>
 	<key>GIDClientID</key>
 	<string>194874520779-eg217gcidsieihdi9vs4ubfmdi82515t.apps.googleusercontent.com</string>
 	<!-- Only standard HTTPS (email sending): exempt from export documentation. -->

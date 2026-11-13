@@ -12,6 +12,9 @@
     <uses-permission android:name="android.permission.WRITE_SMS" />
     <!-- Read-only: syncing the phone's contacts (Import from phone while sync is off) -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+    <!-- Opt-in (Settings › Show in my Contacts app): adds "Text" and "Chat" actions
+         to contacts. Only records under the app's own "Messages++" account are written. -->
+    <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <!-- Campaign emails: the Mailgun-compatible API or Gmail. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Background sending: foreground service while sending, exact wake-up for schedules,
@@ -41,6 +44,8 @@
                  the Android process has started. This theme is visible to the user
                  while the Flutter UI initializes. After that, this theme continues
                  to determine the Window background behind the Flutter UI. -->
+            <!-- Links are routed by app_links (ContactsPlusLinkListener), not Flutter's default. -->
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
             <meta-data
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
@@ -48,6 +53,30 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Shared from other apps (text and links), including Direct Share to a person. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <meta-data android:name="android.app.shortcuts" android:resource="@xml/shortcuts" />
+            <!-- Links from Contacts++ and Events++ (contacts.comeriver.com/messages/…).
+                 Add autoVerify once the Messages++ signing certificate is in
+                 contacts.comeriver.com/.well-known/assetlinks.json. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="contacts.comeriver.com" android:pathPrefix="/messages" />
+            </intent-filter>
+            <!-- Contacts++ sign-in callback (messagesplus://auth/callback) and links from
+                 Contacts++, Events++, the web app and notifications. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="messagesplus"/>
             </intent-filter>
         </activity>
         <!-- Opened by other apps to text someone ("Send SMS" in Contacts, sms: links). -->
@@ -101,6 +130,8 @@
         </service>
         <!-- Sent / delivered reports for personal texts. -->
         <receiver android:name=".SmsStatusReceiver" android:exported="false" />
+        <!-- Delivery reports for campaign texts, which can come hours later. -->
+        <receiver android:name=".CampaignDeliveryReceiver" android:exported="false" />
         <!-- Reply / Mark as read from an incoming-text notification. -->
         <receiver android:name=".NotificationActionReceiver" android:exported="false" />
         <service
@@ -125,6 +156,34 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- "Text …" / "Chat …" tapped on a contact in the phone's Contacts app. -->
+        <activity
+            android:name=".phonebook.PhonebookActionActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.comeriver.messages.text" />
+                <data android:mimeType="vnd.android.cursor.item/vnd.comeriver.messages.chat" />
+            </intent-filter>
+        </activity>
+        <service
+            android:name=".phonebook.PhonebookAuthenticatorService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCOUNT_AUTHENTICATOR">
+            <intent-filter><action android:name="android.accounts.AccountAuthenticator" /></intent-filter>
+            <meta-data android:name="android.accounts.AccountAuthenticator" android:resource="@xml/phonebook_authenticator" />
+        </service>
+        <service
+            android:name=".phonebook.PhonebookSyncService"
+            android:exported="true"
+            android:permission="android.permission.BIND_SYNC_ADAPTER">
+            <intent-filter><action android:name="android.content.SyncAdapter" /></intent-filter>
+            <meta-data android:name="android.content.SyncAdapter" android:resource="@xml/phonebook_sync_adapter" />
+            <meta-data android:name="android.provider.CONTACTS_STRUCTURE" android:resource="@xml/phonebook_structure" />
+        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -132,6 +191,15 @@
 
          In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
+        <!-- Contacts++ and Events++: open chats, profiles and events in the other Comeriver apps. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="contacts"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="eventsplus"/>
+        </intent>
         <!-- Messages-app fallback: open the default SMS app with the message filled in -->
         <intent>
             <action android:name="android.intent.action.SENDTO"/>

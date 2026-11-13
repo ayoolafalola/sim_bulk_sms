@@ -165,12 +165,12 @@ class _ImportPhoneContactsScreenState extends ConsumerState<ImportPhoneContactsS
             'Contacts access is needed to read names and numbers from your phone.\n'
             'If you refused it before, turn it on in app settings › Permissions.',
             action: Wrap(spacing: 8, alignment: WrapAlignment.center, children: [
-              FilledButton(onPressed: _load, child: const Text('Allow access')),
+              FilledButton.icon(onPressed: _load, icon: const Icon(Icons.lock_open), label: const Text('Allow access')),
               if (ref.watch(backgroundSendServiceProvider) case final bg?)
-                OutlinedButton(onPressed: bg.openAppSettings, child: const Text('Open app settings')),
+                OutlinedButton.icon(onPressed: bg.openAppSettings, icon: const Icon(Icons.settings_outlined), label: const Text('Open app settings')),
             ])),
         _Phase.error => _Message('Could not read your phone contacts.\n$_error',
-            action: FilledButton(onPressed: _load, child: const Text('Try again'))),
+            action: FilledButton.icon(onPressed: _load, icon: const Icon(Icons.refresh), label: const Text('Try again'))),
         _Phase.ready => Column(children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),

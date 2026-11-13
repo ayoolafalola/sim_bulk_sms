@@ -148,7 +148,7 @@ class _ContactsScreenState extends ConsumerState<ContactsScreen> {
               OverflowBar(alignment: MainAxisAlignment.end, spacing: 4, children: [
                 TextButton(
                     onPressed: () => ref.read(contactSyncRunnerProvider).disable(), child: const Text('Not now')),
-                FilledButton(onPressed: _enableSync, child: const Text('Use phone contacts')),
+                FilledButton.icon(onPressed: _enableSync, icon: const Icon(Icons.contacts_outlined), label: const Text('Use phone contacts')),
               ]),
             ]),
           ),

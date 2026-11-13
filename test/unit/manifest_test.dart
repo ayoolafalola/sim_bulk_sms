@@ -60,10 +60,27 @@ void main() {
     expect(RegExp(r'<service[^>]*android:name="\.SendService"[^>]*tools:node="remove"').hasMatch(store), true);
   });
 
-  test('never declares call-log, contact-writing or the auto-granted exact-alarm permission', () {
-    for (final p in ['USE_EXACT_ALARM', 'READ_CALL_LOG', 'WRITE_CONTACTS', 'READ_PHONE_NUMBERS']) {
+  test('never declares call-log or the auto-granted exact-alarm permission', () {
+    for (final p in ['USE_EXACT_ALARM', 'READ_CALL_LOG', 'READ_PHONE_NUMBERS']) {
       expect(declares(main, p), false, reason: '$p must not be declared');
     }
+  });
+
+  test('contact writing is only for the app\'s own Contacts-app actions', () {
+    // WRITE_CONTACTS is opt-in (Settings › Show in my Contacts app) and only
+    // ever writes records under the app's own account.
+    expect(declares(main, 'WRITE_CONTACTS'), true);
+    expect(main, contains('android:name=".phonebook.PhonebookSyncService"'));
+    expect(main, contains('android.provider.CONTACTS_STRUCTURE'));
+    expect(main, contains('vnd.android.cursor.item/vnd.comeriver.messages.text'));
+  });
+
+  test('appears in the share sheet and app shortcuts', () {
+    expect(main, contains('android.intent.action.SEND'));
+    expect(main, contains('@xml/shortcuts'));
+    final shortcuts = File('android/app/src/main/res/xml/shortcuts.xml').readAsStringSync();
+    expect(shortcuts, contains('actions.intent.SEND_MESSAGE'));
+    expect(shortcuts, contains('com.comeriver.messages.category.SHARE_TARGET'));
   });
 
   test('release identity: package ID, target API 36, name', () {

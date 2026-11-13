@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../features/account/account_screen.dart';
+import '../features/backup/backup_screen.dart';
 import '../features/campaigns/campaign_detail_screen.dart';
+import '../features/chats/chat_screen.dart';
+import '../features/chats/new_chat_screen.dart';
+import '../features/share/share_target_screen.dart';
 import '../features/campaigns/campaign_editor_screen.dart';
 import '../features/birthdays/birthday_wishes_screen.dart';
 import '../features/contacts/contact_screen.dart';
@@ -38,11 +43,34 @@ final appRouter = GoRouter(navigatorKey: rootNavigatorKey, initialLocation: '/me
     branches: [
       StatefulShellBranch(routes: [
         GoRoute(path: '/messages', builder: (c, s) => const MessagesScreen(), routes: [
-          GoRoute(path: 'new', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const NewMessageScreen()),
+          GoRoute(
+              path: 'new',
+              parentNavigatorKey: rootNavigatorKey,
+              builder: (c, s) => NewMessageScreen(initialBody: s.uri.queryParameters['body'])),
+          // New Contacts++ chat (iPhone, and Android while another app handles texts).
+          GoRoute(path: 'new-chat', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const NewChatScreen()),
+          // Text shared from another app (share sheet): to a person, a group, or a chat.
+          GoRoute(
+              path: 'share',
+              parentNavigatorKey: rootNavigatorKey,
+              builder: (c, s) => ShareTargetScreen(text: s.uri.queryParameters['text'] ?? '')),
+          // "Chat with Messages++" from the phone's Contacts app: the chat, or a text if they aren't on Contacts++.
+          GoRoute(
+              path: 'chat-to',
+              parentNavigatorKey: rootNavigatorKey,
+              builder: (c, s) => ChatToScreen(phone: s.uri.queryParameters['to'] ?? '', name: s.uri.queryParameters['name'])),
+          // A Contacts++ chat (from the Chats list, a notification or Contacts++).
+          GoRoute(
+              path: 'chat/:cid',
+              parentNavigatorKey: rootNavigatorKey,
+              builder: (c, s) => ChatScreen(
+                  conversationId: s.pathParameters['cid']!,
+                  title: s.uri.queryParameters['title'],
+                  draft: s.uri.queryParameters['draft'])),
           GoRoute(
               path: 'thread/:id',
               parentNavigatorKey: rootNavigatorKey,
-              builder: (c, s) => _withId(s, (id) => ConversationScreen(threadId: id))),
+              builder: (c, s) => _withId(s, (id) => ConversationScreen(threadId: id, chatId: s.uri.queryParameters['chat']))),
           // A number to text (from another app or a notification), with an optional draft.
           GoRoute(
               path: 'compose',
@@ -60,7 +88,7 @@ final appRouter = GoRouter(navigatorKey: rootNavigatorKey, initialLocation: '/me
           GoRoute(
               path: 'campaigns/new',
               parentNavigatorKey: rootNavigatorKey,
-              builder: (c, s) => const CampaignEditorScreen()),
+              builder: (c, s) => CampaignEditorScreen(initialTemplate: s.uri.queryParameters['text'])),
           GoRoute(
               path: 'campaigns/:id',
               parentNavigatorKey: rootNavigatorKey,
@@ -109,6 +137,8 @@ final appRouter = GoRouter(navigatorKey: rootNavigatorKey, initialLocation: '/me
           GoRoute(path: 'email', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const EmailSettingsScreen()),
           GoRoute(path: 'pro', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const ProScreen()),
           GoRoute(path: 'setup', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const AppSetupScreen()),
+          GoRoute(path: 'account', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const AccountScreen()),
+          GoRoute(path: 'backup', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const BackupScreen()),
           // Older links.
           GoRoute(path: 'background', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const AppSetupScreen()),
         ]),
@@ -116,3 +146,15 @@ final appRouter = GoRouter(navigatorKey: rootNavigatorKey, initialLocation: '/me
     ],
   ),
 ]);
+
+/// Opens a `messagesplus://` link (from Contacts++, Events++, the web app or
+/// a notification) at the exact screen. `messagesplus://messages/thread/12`
+/// → `/messages/thread/12`; unknown links open the Messages tab.
+void openAppLink(Uri uri) {
+  final path = '/${uri.host}${uri.path}'.replaceAll(RegExp(r'/+$'), '');
+  const known = ['/messages', '/campaigns', '/contacts', '/groups', '/settings', '/birthdays'];
+  // Campaign screens live under the dashboard branch ('/campaigns/:id').
+  final target = known.any((k) => path == k || path.startsWith('$k/')) ? path : '/messages';
+  appRouter.go(Uri(path: target, queryParameters: uri.queryParameters.isEmpty ? null : uri.queryParameters)
+      .toString());
+}

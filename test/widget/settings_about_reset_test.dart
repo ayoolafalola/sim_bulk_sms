@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sim_bulk_sms/app/app_info.dart';
 import 'package:sim_bulk_sms/app/app.dart';
 import 'package:sim_bulk_sms/app/capability_providers.dart';
 import 'package:sim_bulk_sms/app/providers.dart';
@@ -55,7 +56,7 @@ void main() {
     for (final row in ['Share Messages++', 'Website', 'Privacy policy', 'Terms of use', 'Contact support', 'Made by Comeriver']) {
       expect(find.text(row), findsOneWidget, reason: row);
     }
-    expect(find.text('Messages++ by Comeriver · version 1.0.0'), findsOneWidget);
+    expect(find.text('Messages++ by Comeriver · version $appVersion'), findsOneWidget);
 
     await t.tap(find.text('Reset app…'));
     await settle(until: find.text('Reset Messages++?'));

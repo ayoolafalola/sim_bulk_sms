@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Assistant: "Send a message with Messages++ to …". Opens the conversation
+         with the text filled in; nothing is sent until the person taps Send. -->
+    <capability android:name="actions.intent.SEND_MESSAGE">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.comeriver.messages"
+            android:targetClass="app.sim_bulk_sms.MainActivity"
+            android:data="messagesplus://messages/compose">
+            <parameter android:name="message.recipient.telephone" android:key="to" />
+            <parameter android:name="message.text" android:key="body" />
+        </intent>
+    </capability>
+    <!-- Direct Share: recent conversations published by DirectShare.kt appear
+         as people in the share sheet; picking one opens their conversation. -->
+    <share-target android:targetClass="app.sim_bulk_sms.MainActivity">
+        <data android:mimeType="text/plain" />
+        <category android:name="com.comeriver.messages.category.SHARE_TARGET" />
+    </share-target>
+    <shortcut
+        android:shortcutId="new_message"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_message"
+        android:shortcutShortLabel="@string/shortcut_new_message_short"
+        android:shortcutLongLabel="@string/shortcut_new_message_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.comeriver.messages"
+            android:targetClass="app.sim_bulk_sms.MainActivity"
+            android:data="messagesplus://messages/new" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="new_campaign"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_group"
+        android:shortcutShortLabel="@string/shortcut_new_campaign_short"
+        android:shortcutLongLabel="@string/shortcut_new_campaign_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.comeriver.messages"
+            android:targetClass="app.sim_bulk_sms.MainActivity"
+            android:data="messagesplus://campaigns/new" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="birthdays"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_cake"
+        android:shortcutShortLabel="@string/shortcut_birthdays_short"
+        android:shortcutLongLabel="@string/shortcut_birthdays_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.comeriver.messages"
+            android:targetClass="app.sim_bulk_sms.MainActivity"
+            android:data="messagesplus://birthdays" />
+    </shortcut>
+</shortcuts>

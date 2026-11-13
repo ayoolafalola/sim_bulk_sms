@@ -195,12 +195,38 @@ class _ProScreenState extends ConsumerState<ProScreen> {
                           width: double.infinity,
                           child: (p.period == 'yearly' ? FilledButton.new : FilledButton.tonal)(
                             onPressed: _busy ? null : () => _buy(p),
-                            child: Text('${p.period == 'yearly' ? 'Yearly' : 'Monthly'} · ${p.price}'),
+                            // Apple 3.1.2: the title, length and price of each plan.
+                            child: Text(p.period == 'yearly'
+                                ? 'Comeriver Pro yearly · ${p.price} / year · save 10%'
+                                : 'Comeriver Pro monthly · ${p.price} / month'),
                           ),
                         ),
                       ),
-                    Text('Renews automatically until you cancel in $storeName.',
-                        style: TextStyle(color: c.muted, fontSize: 12)),
+                    Text(
+                        'Comeriver Pro is an auto-renewable subscription (1 month or 1 year). Payment is charged to '
+                        'your ${defaultTargetPlatform == TargetPlatform.iOS ? 'Apple Account' : 'Google Play account'} '
+                        'when you confirm the purchase. It renews automatically at the same price unless cancelled at '
+                        'least 24 hours before the end of the current period; your account is charged for renewal '
+                        'within 24 hours before the period ends. Manage or cancel it any time in your $storeName '
+                        'account settings.',
+                        style: TextStyle(color: c.muted, fontSize: 12, height: 1.4)),
+                    const SizedBox(height: 6),
+                    Wrap(spacing: 4, children: [
+                      TextButton.icon(
+                        icon: const Icon(Icons.description_outlined, size: 18),
+                        label: const Text('Terms of Use (EULA)'),
+                        onPressed: () => launchUrl(
+                            Uri.parse(defaultTargetPlatform == TargetPlatform.iOS
+                                ? 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/'
+                                : AppLinks.terms),
+                            mode: LaunchMode.externalApplication),
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.privacy_tip_outlined, size: 18),
+                        label: const Text('Privacy Policy'),
+                        onPressed: () => launchUrl(Uri.parse(AppLinks.privacy), mode: LaunchMode.externalApplication),
+                      ),
+                    ]),
                   ]),
           ),
         ],
@@ -230,10 +256,14 @@ class _ProScreenState extends ConsumerState<ProScreen> {
         const SizedBox(height: 16),
         if (billing != null)
           Wrap(spacing: 8, children: [
-            TextButton(onPressed: _busy ? null : _restore, child: const Text('Restore purchases')),
-            TextButton(
+            TextButton.icon(
+                onPressed: _busy ? null : _restore,
+                icon: const Icon(Icons.restore),
+                label: const Text('Restore purchases')),
+            TextButton.icon(
               onPressed: () => launchUrl(billing.manageUrl(), mode: LaunchMode.externalApplication),
-              child: const Text('Manage subscription'),
+              icon: const Icon(Icons.manage_accounts_outlined),
+              label: const Text('Manage subscription'),
             ),
           ]),
         if (kDebugMode)

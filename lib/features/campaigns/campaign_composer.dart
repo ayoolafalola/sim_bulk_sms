@@ -37,12 +37,16 @@ class RunPlanResult {
 /// fallbacks are stored too, so the campaign can be edited, resent and
 /// scheduled; each send still uses its own immutable snapshot.
 class CampaignComposer {
-  CampaignComposer({required this.contacts, required this.groups, required this.campaigns, this.proStatus});
+  CampaignComposer({required this.contacts, required this.groups, required this.campaigns, this.proStatus, this.sharedValues});
   final ContactRepository contacts;
   final GroupRepository groups;
   final CampaignRepository campaigns;
   /// The Pro subscription; without it (tests) there are no free-plan limits.
   final Future<ProStatus> Function()? proStatus;
+
+  /// Values everyone's message can use, e.g. {invite_link}: the member's
+  /// Contacts++ link when signed in. A campaign's own fallbacks win.
+  final Future<Map<String, String>> Function()? sharedValues;
 
   /// Refuses a new saved campaign beyond the free plan's [FreeLimits.campaigns].
   Future<void> _checkCampaignLimit({int? excludeId}) async {
@@ -83,7 +87,7 @@ class CampaignComposer {
         template: template,
         contacts: await resolveSelection(groupIds: groupIds, contactIds: contactIds),
         suppressedE164: await contacts.suppressedNumbers(),
-        fallbacks: fallbacks,
+        fallbacks: {...?await sharedValues?.call(), ...fallbacks},
         channel: channel,
         subjectTemplate: subject,
         smsSignature: smsSignature,

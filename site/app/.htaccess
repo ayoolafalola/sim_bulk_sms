@@ -1,0 +1,4 @@
+# The web app talks only to the Contacts++ API; no third-party scripts.
+<IfModule mod_headers.c>
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; connect-src 'self' https://s1199.comeriver.com; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+</IfModule>

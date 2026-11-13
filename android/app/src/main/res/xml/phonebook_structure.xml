@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The actions Messages++ adds to contacts in the phone's Contacts app. -->
+<ContactsAccountType xmlns:android="http://schemas.android.com/apk/res/android">
+    <ContactsDataKind
+        android:mimeType="vnd.android.cursor.item/vnd.comeriver.messages.text"
+        android:icon="@drawable/ic_contact_text"
+        android:summaryColumn="data2"
+        android:detailColumn="data3" />
+    <ContactsDataKind
+        android:mimeType="vnd.android.cursor.item/vnd.comeriver.messages.chat"
+        android:icon="@drawable/ic_contact_chat"
+        android:summaryColumn="data2"
+        android:detailColumn="data3" />
+</ContactsAccountType>

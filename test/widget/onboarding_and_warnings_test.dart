@@ -137,10 +137,11 @@ void main() {
     final inbox = FakeMessagesService(isDefaultApp: false, bg: bg);
     await app(t, bg, inbox: inbox);
     appRouter.go('/messages');
-    await settle(t, until: find.text('Make default messaging app'));
-    expect(find.text('Your texts, here'), findsOneWidget);
+    // Like on iPhone: Contacts++ chats (here, the sign-in), plus the offer to see texts too.
+    await settle(t, until: find.text('Make default'));
+    expect(find.text('Sign in with Contacts++'), findsOneWidget);
     inbox.receive(1, '+2348031234567', 'Hello');
-    await t.tap(find.text('Make default messaging app'));
+    await t.tap(find.text('Make default'));
     await settle(t, until: find.text('Hello'));
     expect(find.text('+2348031234567'), findsOneWidget);
   });

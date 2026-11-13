@@ -14,12 +14,16 @@ import 'features/pro/pro_controller.dart';
 import 'platform/background/background_send_service.dart';
 import 'platform/billing/store_billing_service.dart';
 import 'app/app_info.dart';
+import 'features/relay/background_relay.dart';
+import 'platform/contacts_plus/messages_push_service.dart';
 
 // Keeps the background service's Dart entry point compiled into the app.
 export 'background/background_main.dart' show backgroundMain;
+export 'features/relay/background_relay.dart' show relayBackgroundHandler;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  MessagesPushService.backgroundHandler = relayBackgroundHandler;
   if (kIsWeb) {
     // sqflite and SIM sending need a phone. lib/main_web.dart is a UI-only mock.
     runApp(const StartupErrorApp(

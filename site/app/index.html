@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Messages++ on the web</title>
+<meta name="description" content="Campaigns, people and chats on your computer; your phone sends the texts from your own number.">
+<meta name="theme-color" content="#1B6B5A">
+<meta name="robots" content="noindex">
+<link rel="icon" type="image/png" href="/assets/favicon.png">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/app/app.css?v=55c1933ce9">
+<script type="module" src="/app/app.js?v=9df074be4d"></script>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/app/campaigns" data-link>
+    <img src="/assets/messages-plus-plus-icon.png" alt="" width="32" height="32">
+    <span>Messages++</span>
+  </a>
+  <nav class="tabs" aria-label="Main" hidden>
+    <a href="/app/campaigns" data-link data-tab="campaigns"><span aria-hidden="true">✎</span> Campaigns</a>
+    <a href="/app/chats" data-link data-tab="chats"><span aria-hidden="true">💬</span> Chats <b class="count" data-count="chats"></b></a>
+    <a href="/app/people" data-link data-tab="people"><span aria-hidden="true">☺</span> People <b class="count" data-count="people"></b></a>
+    <a href="/app/sends" data-link data-tab="sends"><span aria-hidden="true">⇅</span> Sends</a>
+    <a href="/app/backup" data-link data-tab="backup"><span aria-hidden="true">☁</span> Backup</a>
+    <a href="/app/developers" data-link data-tab="developers"><span aria-hidden="true">⌘</span> API</a>
+  </nav>
+  <button class="icon" type="button" data-signout hidden title="Sign out" aria-label="Sign out">⎋</button>
+</header>
+<main id="view" tabindex="-1"><p class="loading">Loading…</p></main>
+<div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

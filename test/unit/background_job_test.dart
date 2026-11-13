@@ -124,6 +124,25 @@ void main() {
     expect(host.finishes, 1);
   });
 
+  test('relayed texts: results go back to Contacts++ with the app closed, even if reporting fails', () async {
+    final id = await campaign(2);
+    host.queue.add(BackgroundJobRequest.send(id));
+    var reports = 0;
+    await BackgroundJob(
+      host: host, sms: sms, orchestrator: orch, campaigns: campaigns, schedules: schedules,
+      runner: ScheduleRunner(schedules: schedules, campaigns: campaigns, composer: composer),
+      clock: () => now,
+      sleep: (d) async { now = now.add(d); await Future<void>.delayed(Duration.zero); },
+      reportRelay: () async {
+        reports++;
+        throw StateError('offline');
+      },
+    ).run();
+    expect(sms.sentTo, hasLength(2));
+    expect(reports, 3, reason: 'after sending, after delivery reports, before finishing');
+    expect(host.finishes, 1);
+  });
+
   test('check job: runs a due weekly schedule with the current members', () async {
     final id = await campaign(2);
     await schedules.save(id, ScheduleSpec.weekly(weekdays: CampaignSchedule.bit(DateTime.sunday), minuteOfDay: 480),

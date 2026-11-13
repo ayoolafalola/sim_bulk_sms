@@ -24,7 +24,7 @@ const deliveryWait = Duration(minutes: 2);
 class BackgroundJob {
   BackgroundJob({
     required this.host, required this.sms, required this.orchestrator, required this.runner,
-    required this.campaigns, required this.schedules, this.birthdays,
+    required this.campaigns, required this.schedules, this.birthdays, this.reportRelay,
     DateTime Function()? clock, Future<void> Function(Duration)? sleep,
     this.pollEvery = const Duration(seconds: 2), this.waitForCallbacks = deliveryWait,
   })  : _clock = clock ?? DateTime.now,
@@ -38,6 +38,9 @@ class BackgroundJob {
   final ScheduleRepository schedules;
   /// Birthday wishes (Comeriver Pro); null where not wired up (some tests).
   final BirthdayRunner? birthdays;
+  /// Tells Contacts++ what happened to texts it relayed here, so results reach
+  /// it with the app closed; null where not wired up (some tests).
+  final Future<void> Function()? reportRelay;
   final Duration pollEvery, waitForCallbacks;
   final DateTime Function() _clock;
   final Future<void> Function(Duration) _sleep;
@@ -54,6 +57,7 @@ class BackgroundJob {
         }
         continue;
       }
+      await _reportRelay();
       await host.scheduleWake(await nextWakeUp(schedules, campaigns, birthdays: birthdays, now: _clock()));
       if (await host.finish()) return;
     }
@@ -141,13 +145,24 @@ class BackgroundJob {
     } finally {
       ticker.cancel();
     }
+    // "Sent" goes back now; delivery reports follow after the wait.
+    await _reportRelay();
     await host.progress(title: title, text: 'Waiting for delivery reports…', done: c.recipientCount, total: c.recipientCount);
     await _awaitCallbacks(campaignId);
+    await _reportRelay();
     final limit = hit == null
         ? ''
         : '${limitLabel(hit.kind, email: hit.email)} reached. Resumes automatically at ${formatWhen(hit.resumeAt, now: _clock())}. ';
     await host.notifyResult(
         await _resultTitle(campaignId, c.name), '$limit${_summary(await campaigns.statusCounts(campaignId))}');
+  }
+
+  /// Never stops sending: an unreported result goes back on the next try
+  /// (next send, push, or opening the app).
+  Future<void> _reportRelay() async {
+    try {
+      await reportRelay?.call();
+    } catch (_) {}
   }
 
   /// Until every message has a sent/failed result and (if the carrier sends

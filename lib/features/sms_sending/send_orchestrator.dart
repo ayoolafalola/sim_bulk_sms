@@ -8,6 +8,7 @@ import '../../domain/models/email_settings.dart';
 import '../../domain/models/pro.dart';
 import '../../domain/models/send_settings.dart';
 import '../../domain/services/email_body.dart';
+import '../../platform/contacts_plus/contacts_chat_service.dart';
 import '../../platform/email/email_sender.dart';
 import '../../domain/services/send_limits.dart';
 import '../../domain/models/statuses.dart';
@@ -15,24 +16,54 @@ import '../../platform/sms/sms_capability_service.dart';
 
 /// One message handed to the Messages app, waiting for "Did you send it?".
 class ManualSend {
-  const ManualSend({required this.attemptId, required this.name, required this.phone, required this.body,
-      required this.position, required this.total});
+  const ManualSend(
+      {required this.attemptId,
+      required this.name,
+      required this.phone,
+      required this.body,
+      required this.position,
+      required this.total});
   final int attemptId;
   final String name, phone, body;
+
   /// 1-based position in the campaign, for "12 of 40".
   final int position, total;
 }
 
 /// A batch of recipients who get the same text, handed to the Messages app in one go.
 class ManualBatch {
-  const ManualBatch({required this.attemptIds, required this.names, required this.phones, required this.body,
-      required this.from, required this.total});
+  const ManualBatch(
+      {required this.attemptIds,
+      required this.names,
+      required this.phones,
+      required this.body,
+      required this.from,
+      required this.total});
   final List<int> attemptIds;
   final List<String> names, phones;
   final String body;
+
   /// 1-based position of the batch's first recipient among the campaign's texts, for "21–40 of 95".
   final int from, total;
   int get to => from + phones.length - 1;
+}
+
+/// Contacts++ chats for campaign texts (see [SendOrchestrator.sendChatsFirst]).
+abstract interface class ChatSender {
+  Future<Map<String, ChatTarget?>> reachability(Iterable<String> numbers);
+  Future<({ChatOutcome outcome, String? conversationId, String? error})> send(ChatTarget target, String body,
+      {required String clientId});
+}
+
+class ContactsChatSender implements ChatSender {
+  ContactsChatSender(this.service);
+  final ContactsChatService service;
+  @override
+  Future<Map<String, ChatTarget?>> reachability(Iterable<String> numbers) => service.reachability(numbers);
+  @override
+  Future<({ChatOutcome outcome, String? conversationId, String? error})> send(ChatTarget target, String body,
+          {required String clientId}) =>
+      service.send(target, body, clientId: clientId);
 }
 
 class SendBlockedException implements Exception {
@@ -50,7 +81,13 @@ class SendBlockedException implements Exception {
 /// It never reports a result the platform or email service didn't report.
 class SendOrchestrator {
   SendOrchestrator({
-    required this.sms, required this.attempts, required this.campaigns, this.settings, this.emailSender,
+    required this.sms,
+    required this.attempts,
+    required this.campaigns,
+    this.settings,
+    this.emailSender,
+    this.chats,
+    this.chatFirstEnabled,
     this.interval = const Duration(milliseconds: 1500),
     this.emailInterval = const Duration(milliseconds: 500),
     Future<void> Function(Duration)? sleep,
@@ -59,13 +96,21 @@ class SendOrchestrator {
   final SmsCapabilityService sms;
   final AttemptRepository attempts;
   final CampaignRepository campaigns;
+
   /// Send delay and hourly/daily limits. Without it: [interval] and no limits.
   final SettingsRepository? settings;
   final Duration interval; // throttle between Android sends; avoids carrier burst limits
   final Duration emailInterval;
+
   /// Builds the email sender from the current email settings (null when email is off).
   final Future<EmailSender?> Function()? emailSender;
   final Future<void> Function(Duration) _sleep;
+
+  /// Contacts++ chats (signed in to Contacts++). Null: texts only.
+  final ChatSender? chats;
+
+  /// Settings › "Chat with Contacts++ members first". Null: on.
+  final Future<bool> Function()? chatFirstEnabled;
 
   StreamSubscription<SmsEvent>? _sub;
   Future<void> _chain = Future<void>.value();
@@ -74,7 +119,11 @@ class SendOrchestrator {
 
   /// Subscribe once at app start. Callbacks can arrive after a run loop has ended.
   void start() => _sub ??= sms.events.listen((e) => _chain = _chain.then((_) => _onEvent(e)));
-  Future<void> dispose() async { await _sub?.cancel(); _sub = null; }
+  Future<void> dispose() async {
+    await _sub?.cancel();
+    _sub = null;
+  }
+
   /// Completes when all received events have been persisted (used by tests).
   Future<void> flushEvents() => _chain;
 
@@ -83,6 +132,8 @@ class SendOrchestrator {
       'sendSucceeded' => RecipientStatus.sent,
       'sendFailed' => RecipientStatus.failed,
       'deliveryReported' => RecipientStatus.delivered,
+      // Sent, but the carrier reported it could not deliver it.
+      'deliveryFailed' => RecipientStatus.failed,
       _ => null,
     };
     if (next == null) return;
@@ -116,6 +167,8 @@ class SendOrchestrator {
     if (!startable.contains(campaign.status)) {
       throw StateError('Campaign is ${campaign.status.name}; it must be confirmed (ready) or paused to send.');
     }
+    // Like iMessage: Contacts++ members get a chat (no SIM, no tap); the rest get texts.
+    await sendChatsFirst(campaignId);
     final pending = await campaigns.pendingByChannel(campaignId);
     final doSms = !emailsOnly && pending.sms > 0;
     if (doSms) {
@@ -135,7 +188,8 @@ class SendOrchestrator {
     final emailCfg = await settings?.loadEmail() ?? const EmailSettings();
     final signature = await _signature();
     final pro = await settings?.loadPro() ?? const ProStatus();
-    _active = true; _stop = false;
+    _active = true;
+    _stop = false;
     var halted = false;
     LimitHit? hit;
     try {
@@ -145,7 +199,10 @@ class SendOrchestrator {
         // Pause/cancel may come from another engine (the app screen while the
         // background service sends): the database status is the signal.
         final now = await campaigns.get(campaignId);
-        if (now == null || now.status != CampaignStatus.running) { stoppedElsewhere = true; break; }
+        if (now == null || now.status != CampaignStatus.running) {
+          stoppedElsewhere = true;
+          break;
+        }
         final r = await attempts.nextPending(campaignId, channel: doSms ? null : MessageChannel.email);
         if (r == null) break;
         hit = r.isEmail ? await _emailLimitHit(emailCfg, pro) : await _limitHit(cfg);
@@ -171,15 +228,19 @@ class SendOrchestrator {
         final body = withSignature(r.renderedMessage, signature);
         await attempts.setSentBody(attemptId, body);
         final res = await sms.sendMessage(SmsSendRequest(
-            campaignRecipientId: r.id, attemptId: attemptId, phoneE164: r.phone,
-            body: body, subscriptionId: subscriptionId ?? campaign.subscriptionId));
+            campaignRecipientId: r.id,
+            attemptId: attemptId,
+            phoneE164: r.phone,
+            body: body,
+            subscriptionId: subscriptionId ?? campaign.subscriptionId));
         if (res.storedMessageId != null) await attempts.linkStoredMessage(attemptId, res.storedMessageId!);
         if (res.status == RecipientStatus.failed) {
           await attempts.applyResult(attemptId, RecipientStatus.failed,
               errorCode: res.errorCode, errorMessage: res.errorMessage);
           // Never silently switch SIM or push on without permission.
           if (res.errorCode == 'subscription_unavailable' || res.errorCode == 'permission_denied') {
-            halted = true; break;
+            halted = true;
+            break;
           }
         }
         if (!_stop) await _sleep(cfg?.delay ?? interval);
@@ -207,8 +268,13 @@ class SendOrchestrator {
     final body = emailBodies(r.renderedMessage, cfg, signature: signature);
     await attempts.setSentBody(attemptId, body.text);
     final res = await mailer.send(OutgoingEmail(
-      id: 'cr-${r.id}-a$attemptId', campaignId: c.id, toAddress: r.email ?? '', toName: r.name,
-      subject: r.subject ?? c.name, text: body.text, html: body.html,
+      id: 'cr-${r.id}-a$attemptId',
+      campaignId: c.id,
+      toAddress: r.email ?? '',
+      toName: r.name,
+      subject: r.subject ?? c.name,
+      text: body.text,
+      html: body.html,
     ));
     if (res.providerId != null) await attempts.setOperationId(attemptId, res.providerId!);
     final next = switch (res.outcome) {
@@ -232,7 +298,8 @@ class SendOrchestrator {
     if (cfg.hourlyLimit <= 0 && daily <= 0) return null;
     final now = DateTime.now();
     final h = checkLimits(
-        sent: await attempts.emailSendTimesSince(now.subtract(const Duration(hours: 24))), now: now,
+        sent: await attempts.emailSendTimesSince(now.subtract(const Duration(hours: 24))),
+        now: now,
         settings: SendSettings(hourlyLimit: cfg.hourlyLimit, dailyLimit: daily));
     return h == null ? null : LimitHit(h.kind, h.resumeAt, email: true);
   }
@@ -243,6 +310,68 @@ class SendOrchestrator {
     final now = DateTime.now();
     return checkLimits(
         sent: await attempts.sendTimesSince(now.subtract(const Duration(hours: 24))), now: now, settings: cfg);
+  }
+
+  /// Sends the campaign's pending texts to Contacts++ members who accept chats
+  /// from you as Contacts++ chats, before any SIM or composer sending.
+  /// - Refused by Contacts++ (nothing sent): the row goes back to `pending`
+  ///   and gets a text as usual.
+  /// - No answer: `unknown`, never followed by an automatic text.
+  /// Returns how many went as chats. [onProgress] reports (done, total).
+  Future<int> sendChatsFirst(int campaignId, {void Function(int done, int total)? onProgress}) async {
+    final chats = this.chats;
+    if (chats == null || !(await chatFirstEnabled?.call() ?? true)) return 0;
+    final campaign = await campaigns.get(campaignId);
+    if (campaign == null) return 0;
+    final pending = (await campaigns.recipients(campaignId))
+        .where((r) => !r.isEmail && r.status == RecipientStatus.pending && r.phone.isNotEmpty)
+        .toList();
+    if (pending.isEmpty) return 0;
+    final reach = await chats.reachability(pending.map((r) => r.phone));
+    final targets = [
+      for (final r in pending)
+        if (reach[r.phone] != null) r
+    ];
+    if (targets.isEmpty) return 0;
+    final before = campaign.status;
+    if (before != CampaignStatus.running) await attempts.markRunning(campaignId);
+    final signature = await _signature();
+    var sent = 0;
+    for (var i = 0; i < targets.length; i++) {
+      final r = targets[i];
+      final int attemptId;
+      try {
+        attemptId = await attempts.beginAttempt(r.id, 'contacts_chat');
+      } on AttemptRefusedException {
+        continue;
+      }
+      final clientId = ContactsChatService.newClientId();
+      final body = withSignature(r.renderedMessage, signature);
+      await attempts.setOperationId(attemptId, clientId);
+      await attempts.setSentBody(attemptId, body);
+      await attempts.applyResult(attemptId, RecipientStatus.submitted);
+      final res = await chats.send(reach[r.phone]!, body, clientId: clientId);
+      switch (res.outcome) {
+        case ChatOutcome.sent:
+          await attempts.applyResult(attemptId, RecipientStatus.sent);
+          sent++;
+        case ChatOutcome.refused:
+          await attempts.applyResult(attemptId, RecipientStatus.failed,
+              errorCode: 'chat_refused', errorMessage: res.error);
+          await attempts.requeue(r.id); // a text goes instead
+        case ChatOutcome.uncertain:
+          await attempts.applyResult(attemptId, RecipientStatus.unknown,
+              errorCode: 'chat_no_answer', errorMessage: res.error);
+      }
+      onProgress?.call(i + 1, targets.length);
+    }
+    // Everything settled: completed. Otherwise the campaign goes back to
+    // where it was, for the texts and emails that follow.
+    if (await attempts.finalizeCampaign(campaignId) == null && before != CampaignStatus.running) {
+      final now = await campaigns.get(campaignId);
+      if (now?.status == CampaignStatus.running) await campaigns.setStatus(campaignId, before);
+    }
+    return sent;
   }
 
   /// iOS: presents one composer. Returns the recipient's resulting status, or null if nothing is pending.
@@ -259,17 +388,21 @@ class SendOrchestrator {
     if (caps.platform != SmsPlatform.ios || !caps.usesComposerHandoff) {
       throw SendBlockedException(caps.blocker, caps.messageForUser ?? 'The message composer is unavailable.');
     }
+    await sendChatsFirst(campaignId);
     _active = true;
     try {
       final r = await attempts.nextPending(campaignId, channel: MessageChannel.sms);
-      if (r == null) { await attempts.finalizeCampaign(campaignId); return null; }
+      if (r == null) {
+        await attempts.finalizeCampaign(campaignId);
+        return null;
+      }
       await campaigns.setStatus(campaignId, CampaignStatus.awaitingUserAction);
       final attemptId = await attempts.beginAttempt(r.id, 'ios');
       await attempts.applyResult(attemptId, RecipientStatus.awaitingUserAction);
       final body = withSignature(r.renderedMessage, await _signature());
       await attempts.setSentBody(attemptId, body);
-      final res = await sms.sendMessage(SmsSendRequest(
-          campaignRecipientId: r.id, attemptId: attemptId, phoneE164: r.phone, body: body));
+      final res = await sms
+          .sendMessage(SmsSendRequest(campaignRecipientId: r.id, attemptId: attemptId, phoneE164: r.phone, body: body));
       await attempts.applyResult(attemptId, res.status, errorCode: res.errorCode, errorMessage: res.errorMessage);
       await attempts.finalizeCampaign(campaignId);
       return res.status;
@@ -284,10 +417,12 @@ class SendOrchestrator {
   Future<ManualSend?> startManualSend(int campaignId) async {
     final campaign = await campaigns.get(campaignId);
     if (campaign == null) throw StateError('Campaign not found.');
-    if (campaign.status == CampaignStatus.draft || campaign.status == CampaignStatus.cancelled ||
+    if (campaign.status == CampaignStatus.draft ||
+        campaign.status == CampaignStatus.cancelled ||
         campaign.status == CampaignStatus.running) {
       throw StateError('Campaign is ${campaign.status.name}; it can\'t be sent from the Messages app now.');
     }
+    await sendChatsFirst(campaignId);
     final r = await attempts.nextPending(campaignId, channel: MessageChannel.sms);
     if (r == null) {
       await attempts.finalizeCampaign(campaignId);
@@ -300,15 +435,22 @@ class SendOrchestrator {
     final left = texts.where((x) => x.status == RecipientStatus.pending).length;
     final body = withSignature(r.renderedMessage, await _signature());
     await attempts.setSentBody(attemptId, body);
-    return ManualSend(attemptId: attemptId, name: r.name, phone: r.phone, body: body,
-        position: texts.length - left, total: texts.length);
+    return ManualSend(
+        attemptId: attemptId,
+        name: r.name,
+        phone: r.phone,
+        body: body,
+        position: texts.length - left,
+        total: texts.length);
   }
 
   /// Whether the pending texts are all the same (no per-person placeholders), so they can
   /// go to several people in one message.
   Future<bool> canBatch(int campaignId) async {
     final texts = (await campaigns.recipients(campaignId))
-        .where((r) => !r.isEmail && r.status == RecipientStatus.pending).map((r) => r.renderedMessage).toSet();
+        .where((r) => !r.isEmail && r.status == RecipientStatus.pending)
+        .map((r) => r.renderedMessage)
+        .toSet();
     return texts.length == 1;
   }
 
@@ -317,10 +459,12 @@ class SendOrchestrator {
   Future<ManualBatch?> startManualBatch(int campaignId, {int size = 20, String platform = 'android_manual'}) async {
     final campaign = await campaigns.get(campaignId);
     if (campaign == null) throw StateError('Campaign not found.');
-    if (campaign.status == CampaignStatus.draft || campaign.status == CampaignStatus.cancelled ||
+    if (campaign.status == CampaignStatus.draft ||
+        campaign.status == CampaignStatus.cancelled ||
         campaign.status == CampaignStatus.running) {
       throw StateError('Campaign is ${campaign.status.name}; it can\'t be sent from the Messages app now.');
     }
+    await sendChatsFirst(campaignId);
     final texts = (await campaigns.recipients(campaignId)).where((r) => !r.isEmail).toList();
     final pending = texts.where((r) => r.status == RecipientStatus.pending).toList();
     if (pending.isEmpty) {
@@ -339,8 +483,13 @@ class SendOrchestrator {
       ids.add(id);
     }
     final from = texts.length - pending.length + 1;
-    return ManualBatch(attemptIds: ids, names: [for (final r in batch) r.name], phones: [for (final r in batch) r.phone],
-        body: body, from: from, total: texts.length);
+    return ManualBatch(
+        attemptIds: ids,
+        names: [for (final r in batch) r.name],
+        phones: [for (final r in batch) r.phone],
+        body: body,
+        from: from,
+        total: texts.length);
   }
 
   /// The user's answer for a whole batch (see [finishManualSend]).
@@ -348,7 +497,8 @@ class SendOrchestrator {
     int? cid;
     for (final id in attemptIds) {
       cid = await attempts.applyResult(id, sent ? RecipientStatus.sent : RecipientStatus.cancelled,
-          errorCode: errorCode ?? (sent ? 'user_confirmed' : null)) ?? cid;
+              errorCode: errorCode ?? (sent ? 'user_confirmed' : null)) ??
+          cid;
     }
     if (cid != null) await attempts.finalizeCampaign(cid);
   }

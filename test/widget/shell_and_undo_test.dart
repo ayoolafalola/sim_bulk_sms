@@ -68,6 +68,8 @@ void main() {
 
     await t.tap(find.text('Settings').last);
     await settle(t, until: find.text('Sending safely'.toUpperCase()));
+    // Lower down now that the Contacts++ account row comes first.
+    await t.scrollUntilVisible(find.text('4 missing'), 200, scrollable: find.byType(Scrollable).last);
     expect(find.text('4 missing'), findsOneWidget);
   });
 

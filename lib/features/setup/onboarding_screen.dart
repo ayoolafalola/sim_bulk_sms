@@ -96,7 +96,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Widget
                 'Your carrier\'s normal SMS charges apply.\n\n'
                 'The next few steps turn on what the app needs. It takes about a minute.',
           ),
-          FilledButton(onPressed: next, child: const Text('Get started')),
+          FilledButton.icon(onPressed: next, icon: const Icon(Icons.arrow_forward), label: const Text('Get started')),
         ),
       _Permission(:final item) => (
           _PermissionPage(item: item, status: status!),
@@ -105,10 +105,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> with Widget
             child: Text(status.isOk(item) ? 'Next' : 'Skip for now'),
           ),
         ),
-      _Country() => (const _CountryPage(), FilledButton(onPressed: next, child: const Text('Next'))),
+      _Country() => (const _CountryPage(), FilledButton.icon(onPressed: next, icon: const Icon(Icons.arrow_forward), label: const Text('Next'))),
       _Done() => (
           _DonePage(status: status),
-          FilledButton(onPressed: _finishing ? null : _finish, child: const Text('Start using the app')),
+          FilledButton.icon(onPressed: _finishing ? null : _finish, icon: const Icon(Icons.check), label: const Text('Start using the app')),
         ),
     };
 

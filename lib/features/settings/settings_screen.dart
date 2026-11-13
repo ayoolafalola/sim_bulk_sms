@@ -11,6 +11,9 @@ import '../../app/sending_providers.dart';
 import '../../app/theme.dart';
 import '../campaigns/campaign_labels.dart';
 import '../contacts/contact_sync_runner.dart';
+import '../account/account_controller.dart';
+import '../backup/backup_controller.dart';
+import '../phonebook/phonebook_controller.dart';
 import '../pro/pro_controller.dart';
 import 'app_reset.dart';
 import '../common/page_layout.dart';
@@ -58,6 +61,30 @@ class SettingsScreen extends ConsumerWidget {
             ),
           const SizedBox(height: 12),
           _Group(children: [
+            _Row('Contacts++ account', ref.watch(accountProvider).valueOrNull?.displayName,
+                () => context.push('/settings/account'),
+                trailing: ref.watch(accountProvider).valueOrNull == null
+                    ? const StatusTag('Sign in', tone: Tone.info)
+                    : null),
+            if (ref.watch(accountProvider).valueOrNull != null)
+              _Row('Backup and sync', null, () => context.push('/settings/backup'),
+                  trailing: (ref.watch(backupEnabledProvider).valueOrNull ?? false)
+                      ? const StatusTag('On', tone: Tone.success)
+                      : const StatusTag('Off', tone: Tone.neutral)),
+            if (ref.watch(accountProvider).valueOrNull != null)
+              SwitchListTile(
+                secondary: const Icon(Icons.forum_outlined),
+                title: const Text('Chat with Contacts++ members first'),
+                subtitle: const Text('They get a chat on every device; everyone else gets a text.'),
+                value: ref.watch(chatFirstProvider).valueOrNull ?? true,
+                onChanged: (on) async {
+                  await ref.read(settingsRepositoryProvider).setChatFirst(on);
+                  ref.read(dataVersionProvider.notifier).state++;
+                },
+              ),
+          ]),
+          const SizedBox(height: 12),
+          _Group(children: [
             _Row('Comeriver Pro', null, () => context.push('/settings/pro'),
                 trailing: (ref.watch(proStatusProvider).valueOrNull?.isPro() ?? false)
                     ? const StatusTag('Pro', tone: Tone.success)
@@ -80,6 +107,25 @@ class SettingsScreen extends ConsumerWidget {
           ]),
           const SectionLabel('Contacts'),
           const _ContactsSyncGroup(),
+          if (ref.watch(phonebookServiceProvider) != null) ...[
+            const SizedBox(height: 12),
+            _Group(children: [
+              SwitchListTile(
+                secondary: const Icon(Icons.contact_phone_outlined),
+                title: const Text('Show in my Contacts app'),
+                subtitle: const Text('Adds "Text" (and "Chat" for Contacts++ members) to each contact in your phone\'s '
+                    'Contacts app. Your contacts themselves are never changed; turning this off removes it all.'),
+                value: ref.watch(phonebookEnabledProvider).valueOrNull ?? false,
+                onChanged: (on) async {
+                  final ok = await ref.read(phonebookControllerProvider).setEnabled(on);
+                  if (!ok && on && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Messages++ needs permission to add its actions to your contacts.')));
+                  }
+                },
+              ),
+            ]),
+          ],
           const SectionLabel('App'),
           _Group(children: [
             // Android only: the permissions and battery settings background sending needs.

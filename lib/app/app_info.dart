@@ -5,7 +5,7 @@ const appName = 'Messages++';
 /// The name in the stores.
 const appFullName = 'Messages++ by Comeriver';
 /// Version name, as in pubspec.yaml (a test checks they match).
-const appVersion = '1.0.1';
+const appVersion = '1.0.2';
 
 /// The store this build is sold through, for user-facing text ("cancel in Google Play").
 /// Each build names only its own platform's store.

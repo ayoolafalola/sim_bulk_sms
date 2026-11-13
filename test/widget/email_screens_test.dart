@@ -106,6 +106,9 @@ void main() {
     await settle(t, until: find.text('Email subject'));
     await t.enterText(find.widgetWithText(TextField, 'Message'), 'Hi {first_name}');
     await t.ensureVisible(find.textContaining('Choir'));
+    // Clear of the pinned "Save and review" bar.
+    await t.drag(find.ancestor(of: find.text('Send by'), matching: find.byType(Scrollable)).first, const Offset(0, -200));
+    await settle(t);
     await t.tap(find.textContaining('Choir'));
     await settle(t, until: find.text('Emails need a subject'));
     await t.enterText(find.widgetWithText(TextField, 'Email subject'), 'Welcome {first_name}');
@@ -113,7 +116,7 @@ void main() {
     // The summary is at the bottom of the form.
     await t.drag(find.ancestor(of: find.text('Send by'), matching: find.byType(Scrollable)).first, const Offset(0, -1500));
     await settle(t, until: find.text('Welcome Bola'));
-    expect(find.text('1 email'), findsOneWidget);
+    expect(find.text('1 email', skipOffstage: false), findsOneWidget);
     expect(find.text('Email to bola@example.com'), findsOneWidget);
   });
 }

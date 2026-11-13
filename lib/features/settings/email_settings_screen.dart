@@ -134,7 +134,7 @@ class _EmailSettingsScreenState extends ConsumerState<EmailSettingsScreen> {
         content: TextField(controller: to, keyboardType: TextInputType.emailAddress, autofocus: true),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, to.text.trim()), child: const Text('Send')),
+          FilledButton.icon(onPressed: () => Navigator.pop(ctx, to.text.trim()), icon: const Icon(Icons.send), label: const Text('Send')),
         ],
       ),
     );
@@ -183,7 +183,7 @@ class _EmailSettingsScreenState extends ConsumerState<EmailSettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Email')),
       body: FormPage(
-        action: FilledButton(onPressed: _busy ? null : _save, child: const Text('Save')),
+        action: FilledButton.icon(onPressed: _busy ? null : _save, icon: const Icon(Icons.check), label: const Text('Save')),
         children: [
           Text('Campaigns can send emails as well as texts. Emails always go out by themselves.',
               style: TextStyle(color: muted)),

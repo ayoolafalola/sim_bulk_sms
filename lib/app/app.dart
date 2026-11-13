@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../features/account/contacts_plus_link_listener.dart';
 import '../features/scheduling/schedule_ticker.dart';
 import 'router.dart';
 import 'theme.dart';
@@ -12,7 +13,11 @@ class SimBulkSmsApp extends StatelessWidget {
         theme: buildTheme(Brightness.light),
         darkTheme: buildTheme(Brightness.dark),
         routerConfig: appRouter,
-        builder: (context, child) => ScheduleTicker(child: _Readable(child: child ?? const SizedBox.shrink())),
+        scaffoldMessengerKey: appMessengerKey,
+        builder: (context, child) => ContactsPlusLinkListener(
+          onAppLink: openAppLink,
+          child: ScheduleTicker(child: _Readable(child: child ?? const SizedBox.shrink())),
+        ),
       );
 }
 
